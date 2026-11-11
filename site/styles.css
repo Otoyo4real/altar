@@ -273,6 +273,20 @@ button.answer:hover { border-color: var(--gold); background: transparent; }
   font-size: 16px;
   margin: 10px 0 0;
 }
+.protect {
+  color: var(--cream);
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 18px 0 0;
+  text-align: left;
+}
+.protect.lead {
+  text-align: center;
+  color: var(--gold);
+  font-size: 19px;
+}
+.protect b { color: var(--gold); font-weight: normal; }
+.protect .num { color: var(--gold); }
 table {
   width: 100%;
   border-collapse: collapse;

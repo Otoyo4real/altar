@@ -104,6 +104,59 @@
     if (!n) return;
     n.textContent = "No one wallet can offer more than " + capPercentText() + " of supply. The altar needs a crowd of at least " + numberToWords(minOfferersNow()) + ".";
   }
+  // ---- Whale protections: every number derived from live get_params --
+  // The pass line as a percent (2.0 production, 0.25 demo), from
+  // get_params().pass_offered_percent. Falls back to production.
+  function passPercentNow() {
+    try {
+      if (paramsNow && paramsNow.pass_offered_percent != null) return Number(paramsNow.pass_offered_percent);
+    } catch (_) { /* fall through */ }
+    return 2.0;
+  }
+  // The pass line in basis points (200 production, 25 demo).
+  function passBpNow() { return Math.round(passPercentNow() * 100); }
+  // The whale cap in basis points (5 = 0.05%), from get_params().
+  function capBpNow() {
+    try {
+      if (paramsNow && paramsNow.max_offer_supply_bp != null) return Number(paramsNow.max_offer_supply_bp);
+    } catch (_) { /* fall through */ }
+    return 5;
+  }
+  function percentText(p) {
+    var n = Number(p);
+    if (!isFinite(n)) return DASH;
+    return String(n) + "%";
+  }
+  // Fill the "Why no whale can take the altar" section from the live
+  // params, so it is correct on both contracts: the cap percent from
+  // max_offer_supply_bp, the line percent from pass_offered_percent,
+  // the crowd size from min_offerers, the reputation horizon from
+  // reputation_rounds, and the wallets needed at the cap as the line
+  // divided by the cap. The amounts in ALTAR come from the live line
+  // (threshold) for this round: the cap amount is the line times the
+  // cap share of the line.
+  function renderWhaleSection() {
+    var capPct = capPercentText();
+    setText("whaleCapPct", capPct);
+    setText("whaleCapPct2", capPct);
+    setText("exWhaleCapPct", capPct);
+    setText("whaleRepRounds", (function () {
+      var n = reputationRoundsNow();
+      return numberToWords(n) + (n === 1 ? " round" : " rounds");
+    })());
+    setText("whaleMinOfferers", numberToWords(minOfferersNow()));
+    setText("exLinePct", percentText(passPercentNow()));
+    var wallets = passBpNow() / capBpNow();
+    setText("exWallets", Number.isInteger(wallets) ? String(wallets) : wallets.toFixed(1));
+    if (thresholdNow !== null && thresholdNow > 0n) {
+      var capAmt = thresholdNow * BigInt(capBpNow()) / BigInt(passBpNow());
+      setText("exLine", formatAmount(thresholdNow.toString()));
+      setText("exWhaleCap", formatAmount(capAmt.toString()));
+    } else {
+      setText("exLine", DASH);
+      setText("exWhaleCap", DASH);
+    }
+  }
   // The supply side of the whale cap: 0.05% of circulating supply.
   // The line is 2% of circulating, so a fortieth of the line is 0.05%.
   // Falls back to (total supply minus the Altar's share) x 0.0005.
@@ -437,6 +490,7 @@
     renderStreakAndFeast();
     renderHistory();
     updateCapDisplay();
+    renderWhaleSection();
     renderClaim();
     if (walletAccountId) refreshBalance();
     if (walletAccountId) refreshReputation();
@@ -595,6 +649,7 @@
       if (cdHeading) cdHeading.textContent = "Until the round ends";
     }
     renderWhaleRule();
+    renderWhaleSection();
     renderReputation();
     var connectBtn = el("connectBtn");
     if (connectBtn) connectBtn.addEventListener("click", toggleWallet);
