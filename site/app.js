@@ -699,30 +699,26 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     setText("contractId", CONTRACT_ID);
-    var base = window.location.origin + window.location.pathname;
-    var toggle = el("demoToggle");
-    if (toggle) {
-      if (DEMO_MODE) {
-        toggle.textContent = "Back to the live altar";
-        toggle.setAttribute("href", base);
-      } else {
-        toggle.textContent = "See the live demo test";
-        toggle.setAttribute("href", base + "?demo=1");
-      }
-    }
+    // The header demo link is a plain link in the HTML ("<page>?demo=1"),
+    // so production to demo works even if this script is stale or fails.
+    // Here we only flip it back in demo mode, show the demo banner on
+    // every page, and carry ?demo=1 onto the page nav links.
+    var demoBanner = el("demoBanner");
+    if (demoBanner) demoBanner.hidden = !DEMO_MODE;
     var headerDemo = el("headerDemoLink");
-    if (headerDemo) {
-      if (DEMO_MODE) {
-        headerDemo.textContent = "Live altar";
-        headerDemo.setAttribute("href", base);
-      } else {
-        headerDemo.textContent = "Live demo";
-        headerDemo.setAttribute("href", base + "?demo=1");
-      }
+    if (headerDemo && DEMO_MODE) {
+      headerDemo.textContent = "Live altar";
+      var page = window.location.pathname.split("/").pop() || "index.html";
+      headerDemo.setAttribute("href", page);
     }
-    var demoNotice = el("demoNotice");
-    if (demoNotice) demoNotice.hidden = !DEMO_MODE;
     if (DEMO_MODE) {
+      var navLinks = document.querySelectorAll("a[data-page]");
+      for (var i = 0; i < navLinks.length; i++) {
+        var href = navLinks[i].getAttribute("href");
+        if (href && href.indexOf("?demo=1") === -1 && href.indexOf("://") === -1) {
+          navLinks[i].setAttribute("href", href + "?demo=1");
+        }
+      }
       var cdHeading = document.querySelector('section[aria-label="Until midnight"] h2');
       if (cdHeading) cdHeading.textContent = "Until the round ends";
     }

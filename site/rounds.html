@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Past Rounds, ALTAR</title>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="fastnear-wallet.bundle.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" data-page href="index.html">ALTAR</a>
+  <span class="net">Testnet</span>
+  <a id="headerDemoLink" href="rounds.html?demo=1">Live demo</a>
+  <button id="connectBtn" type="button">Connect wallet</button>
+  <nav class="nav">
+    <a data-page href="index.html">Altar</a>
+    <a data-page href="oracle.html">Oracle</a>
+    <a data-page href="ritual.html">Ritual</a>
+    <a data-page href="rounds.html" class="active">Rounds</a>
+  </nav>
+</header>
+<div class="demo-banner" id="demoBanner" hidden>Demo. This is the live test altar: 10 minute rounds, 5 offerers to pass.</div>
+<main>
+  <p id="pageStatus" aria-live="polite"></p>
+
+  <section aria-label="Past rounds">
+    <h2>Past rounds</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Round</th><th>Outcome</th><th class="num">Offered</th><th class="num">Offerers</th><th>Last Offering</th></tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="5" class="empty">No past rounds yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<footer>
+  <p>ALTAR runs on NEAR testnet. No real funds.</p>
+  <p class="contract">Contract <span id="contractId">altar.testnet</span></p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

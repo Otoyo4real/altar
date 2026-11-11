@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ritual, ALTAR</title>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="fastnear-wallet.bundle.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" data-page href="index.html">ALTAR</a>
+  <span class="net">Testnet</span>
+  <a id="headerDemoLink" href="ritual.html?demo=1">Live demo</a>
+  <button id="connectBtn" type="button">Connect wallet</button>
+  <nav class="nav">
+    <a data-page href="index.html">Altar</a>
+    <a data-page href="oracle.html">Oracle</a>
+    <a data-page href="ritual.html" class="active">Ritual</a>
+    <a data-page href="rounds.html">Rounds</a>
+  </nav>
+</header>
+<div class="demo-banner" id="demoBanner" hidden>Demo. This is the live test altar: 10 minute rounds, 5 offerers to pass.</div>
+<main>
+  <p id="pageStatus" aria-live="polite"></p>
+
+  <section aria-label="Why no whale can take the altar">
+    <h2>Why no whale can take the altar</h2>
+    <p class="protect lead">The altar answers a crowd, not a fortune.</p>
+    <p class="protect"><b>The whale cap.</b> No wallet can offer more than <span class="num" id="whaleCapPct">0.05%</span> of supply in one round. A whale and a minnow share the same ceiling.</p>
+    <p class="protect"><b>Reputation.</b> A new wallet can offer only the 10 minimum. Your cap grows with every round you hold, and reaches the full <span class="num" id="whaleCapPct2">0.05%</span> after <span id="whaleRepRounds">seven rounds</span>. Splitting across fresh wallets does not help. Each new wallet starts at the minimum.</p>
+    <p class="protect"><b>The crowd.</b> The round needs at least <span id="whaleMinOfferers">forty</span> distinct offerers. One wallet counts as one, however big it is.</p>
+    <p class="protect"><b>Once per round.</b> Each wallet can offer only once per round. There is no second offering.</p>
+    <p class="protect"><b>The example.</b> A whale holds 40% of all ALTAR. In one round it can offer at most <span class="num" id="exWhaleCapPct">0.05%</span> of supply, which is <span class="num" id="exWhaleCap">&mdash;</span> ALTAR while the line is <span class="num" id="exLine">&mdash;</span> ALTAR. The line to pass is <span class="num" id="exLinePct">2%</span> of supply, so it would take <span class="num" id="exWallets">40</span> wallets offering at the cap to reach it. One whale counts as one.</p>
+  </section>
+
+  <section aria-label="The Altar's share">
+    <h2>The Altar&rsquo;s share</h2>
+    <p class="big"><span id="treasuryValue">&mdash;</span> <span class="unit">ALTAR</span></p>
+    <p class="sub" id="feastLine">Feast Day in &mdash; days</p>
+    <p class="sub">On Feast Day the whole share is given to the offerers of the week, shared in proportion to what each offered.</p>
+  </section>
+
+  <section aria-label="The Last Offering">
+    <h2>The Last Offering</h2>
+    <p class="big" id="lastOfferer">No offering yet</p>
+  </section>
+</main>
+<footer>
+  <p>ALTAR runs on NEAR testnet. No real funds.</p>
+  <p class="contract">Contract <span id="contractId">altar.testnet</span></p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
