@@ -23,9 +23,12 @@
   var paramsNow = null;
   var balanceNow = null;
   var thresholdNow = null;
+  var offeredNow = null;
+  var offererCountNow = null;
   var supplyCapNow = null;
   var reputationNow = null;
   var claimedNow = null;
+  var oracleNow = null;
   var walletAccountId = null;
 
   function el(id) { return document.getElementById(id); }
@@ -444,6 +447,8 @@
           thresholdNow = BigInt(String(threshold));
           if (thresholdNow <= 0n) thresholdNow = null;
         } catch (_) { thresholdNow = null; }
+        try { offeredNow = BigInt(String(total)); } catch (_) { offeredNow = null; }
+        try { offererCountNow = Number(offering.offerer_count) || 0; } catch (_) { offererCountNow = null; }
         setText("offeredValue", formatAmount(total));
         setText("thresholdValue", formatAmount(threshold));
         var pct = 0;
@@ -491,6 +496,7 @@
     renderHistory();
     updateCapDisplay();
     renderWhaleSection();
+    renderOracle();
     renderClaim();
     if (walletAccountId) refreshBalance();
     if (walletAccountId) refreshReputation();
@@ -536,6 +542,43 @@
     var s = left % 60;
     n.textContent = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
     if (btn) btn.disabled = true;
+  }
+
+  // ---- The Oracle -----------------------------------------------
+  // Fill the Oracle section from get_oracle(). The reasoning line
+  // applies the same plain rule the agent runs to the live round
+  // numbers: it expects a pass when the offering already covers at
+  // least 80% of the line and at least 80% of the offerer gate, else
+  // a fail. The prediction itself is locked onchain when the Oracle
+  // stakes; the reasoning line only reads the round as it stands now.
+  function renderOracle() {
+    view("get_oracle", {}).then(function (o) {
+      oracleNow = o || null;
+      if (!o) return;
+      setText("oracleAccount", o.oracle || DASH);
+      if (o.prediction) {
+        setText("oraclePrediction", o.prediction.prediction || DASH);
+        setText("oracleStake", formatAmount(o.prediction.stake || "0"));
+      } else {
+        setText("oraclePrediction", "nothing yet");
+        setText("oracleStake", "0");
+      }
+      setText("oracleCorrect", o.correct != null ? String(o.correct) : DASH);
+      setText("oracleWrong", o.wrong != null ? String(o.wrong) : DASH);
+      setText("oracleTotalStaked", formatAmount(o.total_staked || "0"));
+      var reason = el("oracleReason");
+      if (!reason) return;
+      if (thresholdNow === null || thresholdNow <= 0n || offeredNow === null || offererCountNow === null) {
+        reason.textContent = "The Oracle reads the round as it fills. Its prediction appears here once it stakes.";
+        return;
+      }
+      var pct = Number(offeredNow * 100n / thresholdNow);
+      var gatePct = Math.round(offererCountNow * 100 / minOfferersNow());
+      var expectsPass = offeredNow * 100n >= thresholdNow * 80n && offererCountNow * 100 >= minOfferersNow() * 80;
+      reason.textContent = "Right now the offering covers " + pct + "% of the line with " + gatePct + "% of the offerers needed, so the rule expects a " + (expectsPass ? "pass" : "fail") + ".";
+    }).catch(function () {
+      // The contract may be unreachable; the dashes stay.
+    });
   }
 
   // ---- Claim (testnet faucet) --------------------------------------

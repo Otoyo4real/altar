@@ -51,3 +51,71 @@ Ran 2026-11-11T01:30:10.958Z on altar-ritual-demo.testnet (600s rounds).
 - final balance altar-proof4.testnet: 14913248708537877686171
 - final balance altar-proof5.testnet: 14913248708537877686171
 - final balance altar-proof6.testnet: 14913248708537877686183
+
+## Feast proof — v2 demo (2026-11-11T08:20:35.578Z)
+
+Ran on altar-ritual-v2-demo.testnet (600s rounds). The earlier Feast proof above was on the abandoned v1 demo contract altar-ritual-demo.testnet.
+
+- starting streak: 1
+- --- pass round 2990642 (streak 1 -> 2), 565s left, threshold 2507785000000000000000
+- offer 501557000000000000000 altar-proof1.testnet: Aw9RQ9UEvfd9QiZL4BjwPxqgLrNARY43Xy6m8gERnicK
+- offer 501557000000000000000 altar-proof2.testnet: 3sjgWt5q5pTiJVuE5gu5HQVg1NJQGuq88Gtq63CNZ16y
+- offer 501557000000000000000 altar-proof3.testnet: FKJeYdtrDTuWWtvgBsVDTrTVf7C5MUb8iXnioFveam1y
+- offer 501557000000000000000 altar-proof4.testnet: 5h1DvyjqwwATYLg9pnJaQbQ3CxDDX13AgjeP9mXXc9Zv
+- offer 501557000000000000000 altar-proof5.testnet: 85bnr4Dseq7SznREH3o2ZnMfd988xJqAvz1hTe45Lv82
+- offer 501557000000000000000 altar-proof6.testnet: 9qhdrr4zRA6UPr2VTjDh4C35K9cCHDs2xhXxqqeyxtHx
+- round 2990642 after offers: total_offered=3009342000000000000000 offerer_count=6 threshold=2507785000000000000000
+- round 2990642 ended; calling answer()
+- answer tx: 7TE8FBoyk3spSX9jxKcSrzuHQPrS9DbmoovEuVgtDUz5
+- round 2990642 record: {"round_id":2990642,"total_offered":"3009342000000000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"6771019500000000000000","burned":"3009342000000000000000","feast_paid":"0","streak_after":2}
+- streak now: 2
+- treasury now: 1500835500000000000000
+- --- pass round 2990643 (streak 2 -> 3), 583s left, threshold 2515308355000000000000
+- offer 503061671000000000000 altar-proof1.testnet: 2FyVdpgxZDvq6B58D5zLodDXELM9aYVwkyqHdFyJr1V4
+- offer 503061671000000000000 altar-proof2.testnet: C36gicYT7oMQs9ppB95MWmpRsfkvHPHzZaRpdn4mAoC9
+- offer 503061671000000000000 altar-proof3.testnet: HnuKZo2mjQmpCJTu8SF151gq7w8ACM7Hvaukv6tEjktH
+- offer 503061671000000000000 altar-proof4.testnet: ikMLczs2dGmyFuzSuiyFKowZu3Gjaycvp1FpPdTenm9
+- offer 503061671000000000000 altar-proof5.testnet: Dm6rjnzckeCsQnnAsUvXbp2XDNxamdC6kHMomL4Z78RG
+- offer 503061671000000000000 altar-proof6.testnet: HcqyUHUgsioSCX24uNdjAwSZWiauNG2qaPdonCS54Tt4
+- round 2990643 after offers: total_offered=3018370026000000000000 offerer_count=6 threshold=2515308355000000000000
+- round 2990643 ended; calling answer()
+- answer tx: 4H3JTeG5ixj8fpSMYDnpnkPnANGYDKiztiDiFCRX7zbx
+- round 2990643 record: {"round_id":2990643,"total_offered":"3018370026000000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"6791332558500000000000","burned":"3018370026000000000000","feast_paid":"0","streak_after":3}
+- streak now: 3
+- treasury now: 2255428006500000000000
+- --- pass round 2990644 (streak 3 -> 4), 592s left, threshold 2522854280065000000000
+- offer 504570856013000000000 altar-proof1.testnet: 4Jj53dzeD1BxpCT3RJuHznhUzJUhGpJsmrFAq7mZ4JHE
+- offer 504570856013000000000 altar-proof2.testnet: Dd2TRK62v73aqmiRmJqScnQHuYDn1fzQaD2ZRQkt6vAt
+- offer 504570856013000000000 altar-proof3.testnet: 5ptgo7zzDZBfTPZ2FGQJRXhPHwXmqnf2W1HpB6woyPax
+- offer 504570856013000000000 altar-proof4.testnet: FHR7UbMLfHxBsYaq1K1UJGpDGiYk1RhoNHS7BukGCtJ1
+- offer 504570856013000000000 altar-proof5.testnet: B8GFx2TxB9Q3Wh43gsjuuUMxAs92bE2Sn51oaAXYBUTX
+- offer 504570856013000000000 altar-proof6.testnet: FHsj3bxMXuEbz6wrfMYsDrk1ZHMB5Fs8EcG14X6bUpQa
+- round 2990644 after offers: total_offered=3027425136078000000000 offerer_count=6 threshold=2522854280065000000000
+- round 2990644 ended; calling answer()
+- answer tx: Gp7pWfT1u5d5Yo8L4GSkHdwfo3Ji3QAncxv9xv331h4L
+- round 2990644 record: {"round_id":2990644,"total_offered":"3027425136078000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7568562840195000000000","burned":"3027425136078000000000","feast_paid":"0","streak_after":4}
+- streak now: 4
+- treasury now: 3012284290519500000000
+- --- pass round 2990645 (streak 4 -> 5), 584s left, threshold 2532314983615243750000
+- offer 506462996723048750000 altar-proof1.testnet: 7Q6Ume1hskkXhmRbfV8cEZmj1irsn8E2WQcub2mreuCh
+- offer 506462996723048750000 altar-proof2.testnet: 5EHgpDXCV7g6c5JxfMpHH2CjRB7qiQsuwGb7qxr2pvrb
+- offer 506462996723048750000 altar-proof3.testnet: Dj6YKTy1m18EUwPfhMU8ixXUvT1s19M6qMwenai2eqBZ
+- offer 506462996723048750000 altar-proof4.testnet: 3E848pcjwrzg7pRAi5aV66oHgGjogS3P9qz9JYrJmTHB
+- offer 506462996723048750000 altar-proof5.testnet: BhxiJtr2MqxboCbSeVLUBp1M4PnXDUynYSwWByu1PMiu
+- offer 506462996723048750000 altar-proof6.testnet: 6J85yzSCL4Ujj9Ams15BBxMqHX3iczTFgfmvF5tkUK1T
+- round 2990645 after offers: total_offered=3038777980338292500000 offerer_count=6 threshold=2532314983615243750000
+- round 2990645 ended; calling answer()
+- answer tx: 2Wi1c7GDsGhrdJfzNYKk8gfDM2b1oNbQMSXsC4Bb8F6w
+- round 2990645 record: {"round_id":2990645,"total_offered":"3038777980338292500000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7596944950845731250000","burned":"3038777980338292500000","feast_paid":"0","streak_after":5}
+- streak now: 5
+- treasury now: 3771978785604073125000
+- --- pass round 2990646 (streak 5 -> 6), 592s left, threshold 2541811164803800914062
+- offer 508362232960760182812 altar-proof1.testnet: DmAKymCM81uLT84P4fGtniKmxGyao3Te44DiAHEBL5Tx
+- offer 508362232960760182812 altar-proof2.testnet: BdSSjqYxB1n18xAZZ5RcMHuXX7oQZrG5wTc3iwzk39CK
+- offer 508362232960760182812 altar-proof3.testnet: DgRSvagx6Vy12E9uMZFprGK1HtW5PnhuJzMdetzt6TKL
+- offer 508362232960760182812 altar-proof4.testnet: BcLrNudVg8jmX4uQ3d6TpVczXRmxH1bSbL6KYaib1ht1
+- offer 508362232960760182812 altar-proof5.testnet: 7r83Sq9th9py24JaGVFc41pJMgVeoCjN8bSkWRVmnD6u
+- offer 508362232960760182812 altar-proof6.testnet: 8pomutc2WLyvQfSUyBqJ3yaVe4j6xx4p7BF8sq2rWd5L
+- round 2990646 after offers: total_offered=3050173397764561096872 offerer_count=6 threshold=2541811164803800914062
+- round 2990646 ended; calling answer()
+- answer tx: 5BVqGgH8HtdtE7zPotpXJw3bRfzmvqJA1gK3VRgoCv6S

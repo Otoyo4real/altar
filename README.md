@@ -29,6 +29,10 @@ One contract, one NEP-141 token, no owner, no pause, no setters. Every parameter
 
 **Claim (testnet faucet).** Any wallet calls `claim()` once and receives exactly 100 test ALTAR, minted in the same call — the claim registers the wallet on the token, so a brand-new wallet can claim and immediately offer. The faucet stops at 100,000 ALTAR total (1,000 claims). A fresh wallet's offer cap is floored at the 10 minimum, so 100 is enough to offer 10 a round and grow through passes. The site shows a "Claim 100 test ALTAR" button when your wallet is connected and disables it, with a clear note, once you have claimed. The faucet mints new supply, separate from the ritual mint; the 60-day simulation models the ritual only.
 
+**The Oracle.** One agent wallet, set at init and never changeable, reads each round and bets its own ALTAR on whether the offering will pass. Once per round, before the round ends, it calls `oracle_predict(pass)` and stakes exactly 100 ALTAR of its own. The stake is locked by the contract until the Answer settles the round. If the Oracle was right, it gets its stake back plus 10 ALTAR from the Altar's share (10% of the stake; if the share is empty it gets its stake back and no reward that round). If it was wrong, the 100 stake is burned, the same fate as a failed offering. If it made no prediction for a round, nothing happens. The Oracle cannot mint, burn user tokens, withdraw the treasury, or change any parameter. It cannot move the outcome, and its stake does not count toward the pass gate or the offerer count. Its record (correct, wrong, total staked, total rewarded, total burned) is onchain through `get_oracle()`, and the site shows its current prediction, its stake, and its record.
+
+The prediction rule is plain and public, not a neural network: the Oracle predicts a pass when the offering already covers at least 80% of the line and at least 80% of the offerer gate, otherwise it predicts a fail. The agent script is `scripts/oracle.mjs`. The contract enforcement is the point, not the cleverness of the prediction: the Oracle has real stake at risk either way, and a wrong Oracle loses like everyone else.
+
 ## Parameters
 
 Production init: `new(86400, 40, 2.0, 7)`. Demo init: `new(600, 5, 0.25, 1)`.
@@ -48,6 +52,7 @@ Production init: `new(86400, 40, 2.0, 7)`. Demo init: `new(600, 5, 0.25, 1)`.
 | Feast Day | Every 7th consecutive pass, entire share paid out | Same |
 | Last Offering | Title recorded onchain for the last offerer, no extra tokens | Same |
 | Claim (testnet faucet) | 100 ALTAR once per wallet, 100,000 total cap | Same |
+| Oracle | One agent wallet, 100 ALTAR stake per prediction, 10 reward from the Altar's share on a correct prediction, stake burned on a wrong one | Same |
 
 The demo keeps the real 0.05% cap and the real reputation rule. Only the round length, the offerer threshold, the supply gate, and the reputation rounds are lowered, so 5 offerers at the cap exactly reach the 0.25% demo gate (5 times 0.05% = 0.25%). The demo init params are disclosed here and in `get_params()`.
 
@@ -66,9 +71,10 @@ Note: an earlier draft of this example quoted a pass supply of 1,056,250. That a
 1. Open the live page and read the line, the rule, the Offering bowl filling toward the 2% line, the offerer count, the countdown to midnight, the streak, the Altar's share, and the Last Offering.
 2. Connect a wallet and claim 100 free test ALTAR with the claim button. No tokens to buy, no transfer to arrange.
 3. Offer some ALTAR and watch your balance move into the vault and your cap shown.
-4. Call the Answer after midnight and watch the outcome: on a pass, offerers receive double and the supply number rises; on a fail, the offered coins are gone and the supply falls.
-5. Call `get_params()` to prove every threshold, cap, and multiplier is fixed and public.
-6. Read the Known Limits below.
+4. Read the Oracle's prediction for this round and its record. It stakes 100 of its own ALTAR on the outcome and loses it when it is wrong.
+5. Call the Answer after midnight and watch the outcome: on a pass, offerers receive double and the supply number rises; on a fail, the offered coins are gone and the supply falls.
+6. Call `get_params()` to prove every threshold, cap, and multiplier is fixed and public.
+7. Read the Known Limits below.
 
 ## Simulation
 
@@ -95,17 +101,18 @@ Scenario E: in round 1 the split offers 40 times 10 = 400 against the 20,000 gat
 - **The gate implies the crowd.** Under the 0.05% cap, meeting the 2% amount gate requires at least 40 offerers, so the amount gate implies the offerer gate. 39 wallets at the cap offer 19,500, below the 20,000 gate.
 - **The demo is a demo.** It uses 10 minute rounds, 5 offerers, a 0.25% gate, and 1 reputation round. The cap, the multipliers, the treasury rule, and the reputation rule are the real ones.
 - **The faucet is testnet only.** It mints new supply (100 per claim, 100,000 total), separate from the ritual mint. One claim per wallet, enforced onchain; the site disables the button once a wallet has claimed. It exists so anyone can try the ritual without asking the deployer for tokens. It does not exist on mainnet.
+- **The Oracle is a simple rule, not an intelligence.** It predicts a pass when the offering already covers 80% of the line and 80% of the offerer gate. It can be wrong, and when it is wrong it loses 100 ALTAR like any failed offering. Its stake does not count toward the gate, and it cannot move the outcome. The Oracle wallet holds a 5,000 ALTAR reserve (50 stakes); if it runs out, it stops predicting until it is refilled. The Oracle is one wallet, so its prediction is one agent's read of the round, not a consensus.
 
 ## Build, test, and deploy
 
-Contract: `contract/`, Rust with near-sdk. Build with `cargo near build non-reproducible-wasm` (needs `~/.cargo/bin` on PATH). Tests with `cargo test`: 46 passed, 0 failed. Near sandbox integration tests cannot run in this environment (file descriptor limit 4096, sandbox needs 65535), so coverage is unit tests at both demo and production init values. Wasm is `contract/target/near/altar.wasm` (218,708 bytes, SHA-256 426427c09d4ecb2baa5e2d7ba09dbd246e4366693c2a46a18363603908398211).
+Contract: `contract/`, Rust with near-sdk. Build with `cargo near build non-reproducible-wasm` (needs `~/.cargo/bin` on PATH). Tests with `cargo test`: 58 passed, 0 failed (46 ritual and faucet tests, 12 Oracle tests). Near sandbox integration tests cannot run in this environment (file descriptor limit 4096, sandbox needs 65535), so coverage is unit tests at both demo and production init values. Wasm is `contract/target/near/altar.wasm` (229,387 bytes, SHA-256 71b9602dd14e2e34c0797719636e90fd99f7e02c262c1b643dee02201d08b27c).
 
 Simulation: `scripts/simulate.mjs`, run with `node simulate.mjs`. Results in `scripts/simulation-results.md`.
 
 Site: `site/`, static HTML, CSS, and JS, no build step. Set `config.js` `CONTRACT_ID` to the deployed contract account, then serve and open it. It uses the @fastnear/wallet bundle for connect on testnet. The site has a "Claim 100 test ALTAR" button (visible when a wallet is connected, disabled once that wallet has claimed) and a demo view (`?demo=1`) that reads the demo contract instead of production.
 
-Deploy (testnet, v2 with the claim faucet, 2026-11-11): production `altar-ritual-v2.testnet` (deploy tx Dmb4w9Sr5nauPwM43PUHAzHPh9GpKMM31KLjj9f8NSWh, init tx 2aEgb8Dt2p2Y5bYHhrJTGA7ufniUNX1BPYWVL25PnYLM), demo `altar-ritual-v2-demo.testnet` (deploy tx HbaVqyJaQJowdGHkr3EGnxMTZyPriab5LydiJoSrzztJ, init tx CdvPgNyhg7KY98wfp91CkZYvtpvgaqGjqrGrByNweHEg). The v1 accounts (`altar-ritual.testnet`, `altar-ritual-demo.testnet`) are abandoned — the claim adds struct fields, so the old state cannot be read by the new code. Live proofs on the v2 demo (claim, FAIL, PASS, Feast) are in `scripts/live-proof-log.md` and `scripts/feast-proof-log.md`.
+Deploy (testnet, v3 with the claim faucet and the AI Oracle, 2026-11-11): production `altar-ritual-v3.testnet` (deploy tx 88RH7JgYM9PSfLRA41fxjWnmDZ37q7YnSt6JK6JcGpsC, init tx BXpM13adPSPRnsiaKwMQzRAn566kKxd9Q6iFcAVXZtbb), demo `altar-ritual-v3-demo.testnet` (deploy tx 6TeFpUSNBzs3SV948BepferCPXaEt1t64MDBv7xw78YD, init tx FeiPzYsMhLQvwjXbUEiZJ4pVDeTZcqci1VJNg5y3wcSY). The Oracle wallet is `altar-oracle.testnet`, funded with 5,000 ALTAR on each contract (50 stakes of 100). The v2 accounts (`altar-ritual-v2.testnet`, `altar-ritual-v2-demo.testnet`) are abandoned — the Oracle adds struct fields, so the old state cannot be read by the new code. The v1 accounts (`altar-ritual.testnet`, `altar-ritual-demo.testnet`) are also abandoned. Live proofs on the v3 demo (claim, FAIL, PASS, Oracle correct, Oracle wrong, Feast) are in `scripts/live-proof-v3-log.md` and `scripts/feast-proof-v3-log.md`.
 
 ## What is not built
 
-No AI Oracle. No principal return (the sacrifice rule stands: offer 100, get 200 back on a pass, lose it on a fail). No demo video, no X post, and no hackathon submission yet.
+No principal return (the sacrifice rule stands: offer 100, get 200 back on a pass, lose it on a fail). No demo video, no X post, and no hackathon submission yet.

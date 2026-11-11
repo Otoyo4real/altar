@@ -30,6 +30,27 @@
 //!   total (1,000 claims). A fresh wallet's offer cap is floored at the
 //!   10 ALTAR minimum, so 100 is enough to offer and grow via passes.
 //!   `get_claimed(account)` tells the site whether a wallet claimed.
+//! - The Oracle: one designated agent wallet, set at init and immutable.
+//!   Once per round, before the round ends, it may call
+//!   `oracle_predict(pass)` and stake exactly 100 ALTAR of its own on
+//!   whether the round will pass. The stake is locked by the contract.
+//!   When the Answer settles the round, the contract checks the
+//!   prediction against the real outcome: if the Oracle was right, it
+//!   gets its stake back plus 10 ALTAR from the Altar's share (the
+//!   reward is capped at what the share holds; if the share is empty
+//!   the Oracle gets its stake back and no reward that round). If it
+//!   was wrong, the stake is burned, the same fate as a failed
+//!   offering. If it made no prediction for a round, nothing happens.
+//!   The Oracle cannot mint, burn user tokens, withdraw the treasury,
+//!   or change any parameter; it cannot move the outcome, and its
+//!   stake does not count toward the pass gate or the offerer count.
+//!   `get_oracle()` serves its current prediction and its record
+//!   (correct, wrong, total staked, total rewarded, total burned).
+//!   The prediction rule the agent runs is a plain public rule, not a
+//!   neural network: predict pass when the offering already covers at
+//!   least 80% of the line and at least 80% of the offerer gate, else
+//!   predict fail. The contract enforcement is the point, not the
+//!   cleverness of the prediction.
 //! - Offer: once per wallet per round, min 10 ALTAR, max the smaller of
 //!   5% of the caller's own balance and 0.05% of circulating supply at
 //!   round start, scaled by the caller's reputation factor (see below).
@@ -123,6 +144,13 @@ pub const FEAST_EVERY: u8 = 7;
 pub const CLAIM_AMOUNT: u128 = 100_000_000_000_000_000_000;
 /// The faucet stops at 100,000 ALTAR total (1,000 claims of 100).
 pub const CLAIM_CAP_TOTAL: u128 = 100_000_000_000_000_000_000_000;
+/// The Oracle stakes exactly 100 ALTAR on each prediction, from its own
+/// balance. 100 is the same size as one faucet claim.
+pub const ORACLE_STAKE: u128 = 100_000_000_000_000_000_000;
+/// The Oracle's reward for a correct prediction: 10 ALTAR, paid from
+/// the Altar's share (10% of the stake). Capped at what the share
+/// holds; if the share is empty the reward is 0 that round.
+pub const ORACLE_REWARD: u128 = 10_000_000_000_000_000_000;
 /// Streak multipliers in basis points: streak 0-2, 3-6, 7+.
 pub const MULTIPLIERS_BP: [u16; 3] = [22500, 25000, 27500];
 /// Streak thresholds at which the multiplier rises.
@@ -272,6 +300,56 @@ pub struct RoundRecord {
     pub burned: String,
     pub feast_paid: String,
     pub streak_after: u64,
+    /// The Oracle's prediction for this round, if it made one:
+    /// "Pass" or "Fail".
+    pub oracle_prediction: Option<String>,
+    /// The Oracle's outcome for this round: "correct", "wrong", "none".
+    pub oracle_outcome: String,
+    /// Reward paid to the Oracle for a correct prediction, in smallest
+    /// units (0 when the prediction was wrong, absent, or the Altar's
+    /// share was empty).
+    pub oracle_rewarded: String,
+    /// Oracle stake burned for a wrong prediction, in smallest units
+    /// (0 otherwise).
+    pub oracle_burned: String,
+}
+
+/// One Oracle prediction, stored by round id. The stake is fixed
+/// (ORACLE_STAKE) and is locked in the contract until the round is
+/// settled by the Answer.
+#[derive(BorshSerialize, BorshDeserialize, Clone)]
+pub struct OraclePrediction {
+    pub round_id: u64,
+    /// true = the Oracle predicted the round would pass.
+    pub prediction: bool,
+    pub stake: u128,
+}
+
+/// The Oracle's current prediction, as served by `get_oracle`.
+#[derive(Clone, schemars::JsonSchema, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct OraclePredictionView {
+    pub round_id: u64,
+    pub prediction: String,
+    pub stake: String,
+}
+
+/// The Oracle, as served by `get_oracle`: the designated agent wallet,
+/// its prediction for the current round (if any), and its record.
+#[derive(Clone, schemars::JsonSchema, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct OracleView {
+    pub oracle: String,
+    pub prediction: Option<OraclePredictionView>,
+    pub correct: u64,
+    pub wrong: u64,
+    pub total_staked: String,
+    pub total_rewarded: String,
+    pub total_burned: String,
+    /// The fixed stake per prediction, in smallest units.
+    pub stake_amount: String,
+    /// The reward for a correct prediction, in smallest units.
+    pub reward_amount: String,
 }
 
 /// The contract's fixed parameters, as served by `get_params`.
@@ -300,6 +378,12 @@ pub struct Params {
     pub claim_cap_total: String,
     /// ALTAR minted by the faucet so far.
     pub total_claimed: String,
+    /// The designated Oracle wallet (set at init, immutable).
+    pub oracle_account: String,
+    /// The fixed stake the Oracle puts up per prediction.
+    pub oracle_stake: String,
+    /// The reward the Oracle earns for a correct prediction.
+    pub oracle_reward: String,
 }
 
 /// One wallet's reputation, as served by `get_reputation`.
@@ -382,6 +466,23 @@ pub struct Contract {
     /// Total ALTAR minted by the faucet so far (capped at
     /// CLAIM_CAP_TOTAL).
     total_claimed: u128,
+    /// The designated Oracle wallet (set at init, immutable). Only this
+    /// account may call `oracle_predict`.
+    oracle_account: AccountId,
+    /// The Oracle's predictions, by round id. A prediction is removed
+    /// when its round is settled by the Answer.
+    oracle_predictions: LookupMap<u64, OraclePrediction>,
+    /// ALTAR currently locked as Oracle stakes for unsettled rounds.
+    /// Invariant: the contract's own FT balance == vault + treasury +
+    /// oracle_locked.
+    oracle_locked: u128,
+    /// Oracle record: correct predictions, wrong predictions, total
+    /// staked, total rewarded, total burned.
+    oracle_correct: u64,
+    oracle_wrong: u64,
+    oracle_total_staked: u128,
+    oracle_total_rewarded: u128,
+    oracle_total_burned: u128,
 }
 
 #[near]
@@ -389,16 +490,17 @@ impl Contract {
     /// Initialise the contract and mint the genesis supply to the
     /// deployer (the predecessor at init) for distribution. Init takes
     /// the round length, the breadth gate, the pass gate as a percent
-    /// (2.0 production, 0.25 demo) and the reputation horizon in rounds
-    /// (7 production, 1 demo); every other number is an immutable
-    /// constant in the code. There is no owner afterwards: nothing in
-    /// this contract checks the deployer.
+    /// (2.0 production, 0.25 demo), the reputation horizon in rounds
+    /// (7 production, 1 demo), and the designated Oracle wallet; every
+    /// other number is an immutable constant in the code. There is no
+    /// owner afterwards: nothing in this contract checks the deployer.
     #[init]
     pub fn new(
         round_duration_seconds: u64,
         min_offerers: u32,
         pass_offered_percent: f64,
         reputation_rounds: u64,
+        oracle_account: AccountId,
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         assert!(round_duration_seconds > 0, "round duration must be positive");
@@ -452,6 +554,14 @@ impl Contract {
             first_round: LookupMap::new(b"f"),
             claimed: LookupSet::new(b"c"),
             total_claimed: 0,
+            oracle_account,
+            oracle_predictions: LookupMap::new(b"p"),
+            oracle_locked: 0,
+            oracle_correct: 0,
+            oracle_wrong: 0,
+            oracle_total_staked: 0,
+            oracle_total_rewarded: 0,
+            oracle_total_burned: 0,
         };
         // Genesis distribution: the deployer's reputation clock starts now.
         this.note_positive_balance(&deployer);
@@ -624,6 +734,47 @@ impl Contract {
         self.note_positive_balance(&caller);
     }
 
+    // -- the Oracle -----------------------------------------------------
+
+    /// The Oracle's prediction: the designated agent wallet stakes
+    /// exactly 100 ALTAR of its own on whether the current round will
+    /// pass (`prediction` true) or fail (false). Once per round, before
+    /// the round ends. The stake is locked by the contract until the
+    /// Answer settles the round. Only the Oracle wallet may call this;
+    /// the stake does not count toward the pass gate or the offerer
+    /// count, and it cannot move the outcome. Attached deposit: 1
+    /// yoctoNEAR.
+    #[payable]
+    pub fn oracle_predict(&mut self, prediction: bool) {
+        self.require_one_yocto();
+        let caller = env::predecessor_account_id();
+        assert_eq!(
+            caller, self.oracle_account,
+            "only the Oracle may predict"
+        );
+        let round_id = self.current_round_id();
+        assert!(
+            self.oracle_predictions.get(&round_id).is_none(),
+            "the Oracle already predicted this round"
+        );
+        // The stake leaves the Oracle's wallet into the contract now.
+        // The transfer panics if the Oracle holds less than the stake.
+        let contract_id = env::current_account_id();
+        self.token
+            .internal_transfer(&caller, &contract_id, ORACLE_STAKE, None);
+        self.note_zero_balance(&caller);
+        self.oracle_predictions.insert(
+            round_id,
+            OraclePrediction {
+                round_id,
+                prediction,
+                stake: ORACLE_STAKE,
+            },
+        );
+        self.oracle_locked += ORACLE_STAKE;
+        self.oracle_total_staked += ORACLE_STAKE;
+    }
+
     // -- the Answer -------------------------------------------------------
 
     /// The Answer: settle the latest ended unsettled round. Anyone may
@@ -762,6 +913,56 @@ impl Contract {
             self.clear_streak_offered();
         }
 
+        // The Oracle: resolve any prediction for this round against the
+        // real outcome. A prediction for a different round is left
+        // alone; the Answer settles rounds in order, so each prediction
+        // is resolved when its own round is settled.
+        let mut oracle_prediction: Option<String> = None;
+        let mut oracle_outcome = "none".to_string();
+        let mut oracle_rewarded: u128 = 0;
+        let mut oracle_burned: u128 = 0;
+        if let Some(pred) = self.oracle_predictions.get(&round_id).cloned() {
+            oracle_prediction = Some(if pred.prediction {
+                "Pass".to_string()
+            } else {
+                "Fail".to_string()
+            });
+            self.oracle_predictions.remove(&round_id);
+            self.oracle_locked -= pred.stake;
+            let contract_id = env::current_account_id();
+            if pred.prediction == passed {
+                // Correct: the stake comes back plus 10 ALTAR from the
+                // Altar's share, capped at what the share holds. If
+                // the share is empty the Oracle gets its stake back
+                // and no reward that round.
+                let reward = ORACLE_REWARD.min(self.treasury_balance);
+                let back = pred.stake + reward;
+                let oracle_account = self.oracle_account.clone();
+                if back > 0 {
+                    self.token.internal_transfer(
+                        &contract_id,
+                        &oracle_account,
+                        back,
+                        None,
+                    );
+                    self.note_positive_balance(&oracle_account);
+                }
+                self.treasury_balance -= reward;
+                self.oracle_correct += 1;
+                self.oracle_total_rewarded += reward;
+                oracle_outcome = "correct".to_string();
+                oracle_rewarded = reward;
+            } else {
+                // Wrong: the stake is burned, the same fate as a
+                // failed offering.
+                self.token.internal_withdraw(&contract_id, pred.stake);
+                self.oracle_wrong += 1;
+                self.oracle_total_burned += pred.stake;
+                oracle_outcome = "wrong".to_string();
+                oracle_burned = pred.stake;
+            }
+        }
+
         let record = RoundRecord {
             round_id,
             total_offered: total_offered.to_string(),
@@ -772,6 +973,10 @@ impl Contract {
             burned: total_offered.to_string(),
             feast_paid: feast_paid.to_string(),
             streak_after: self.streak,
+            oracle_prediction,
+            oracle_outcome,
+            oracle_rewarded: oracle_rewarded.to_string(),
+            oracle_burned: oracle_burned.to_string(),
         };
         self.rounds.remove(&round_id);
         self.settled.insert(round_id, record.clone());
@@ -832,6 +1037,37 @@ impl Contract {
             claim_amount: CLAIM_AMOUNT.to_string(),
             claim_cap_total: CLAIM_CAP_TOTAL.to_string(),
             total_claimed: self.total_claimed.to_string(),
+            oracle_account: self.oracle_account.to_string(),
+            oracle_stake: ORACLE_STAKE.to_string(),
+            oracle_reward: ORACLE_REWARD.to_string(),
+        }
+    }
+
+    /// The Oracle: the designated agent wallet, its prediction for the
+    /// current round (if it made one), and its record so far.
+    pub fn get_oracle(&self) -> OracleView {
+        let round_id = self.current_round_id();
+        let prediction = self.oracle_predictions.get(&round_id).map(|p| {
+            OraclePredictionView {
+                round_id: p.round_id,
+                prediction: if p.prediction {
+                    "Pass".to_string()
+                } else {
+                    "Fail".to_string()
+                },
+                stake: p.stake.to_string(),
+            }
+        });
+        OracleView {
+            oracle: self.oracle_account.to_string(),
+            prediction,
+            correct: self.oracle_correct,
+            wrong: self.oracle_wrong,
+            total_staked: self.oracle_total_staked.to_string(),
+            total_rewarded: self.oracle_total_rewarded.to_string(),
+            total_burned: self.oracle_total_burned.to_string(),
+            stake_amount: ORACLE_STAKE.to_string(),
+            reward_amount: ORACLE_REWARD.to_string(),
         }
     }
 
@@ -1064,6 +1300,7 @@ mod tests {
     const WHALE: &str = "whale.testnet";
     const FIVE: [&str; 5] = [ALICE, BOB, CAROL, DAVE, ERIN];
     const SIX: [&str; 6] = [ALICE, BOB, CAROL, DAVE, ERIN, FRANK];
+    const ORACLE: &str = "oracle.testnet";
 
     fn acc(s: &str) -> AccountId {
         s.parse().unwrap()
@@ -1089,13 +1326,13 @@ mod tests {
     /// Demo deployment: 600s rounds, 5 offerers, 0.25% gate, rep 1.
     fn setup() -> Contract {
         set_ctx(DEPLOYER, 0, 0);
-        Contract::new(DURATION, 5, 0.25, 1)
+        Contract::new(DURATION, 5, 0.25, 1, acc(ORACLE))
     }
 
     /// Production deployment: 86400s rounds, 40 offerers, 2% gate, rep 7.
     fn setup_prod() -> Contract {
         set_ctx(DEPLOYER, 0, 0);
-        Contract::new(PROD_DURATION, 40, 2.0, 7)
+        Contract::new(PROD_DURATION, 40, 2.0, 7, acc(ORACLE))
     }
 
     /// Give `account` `amount` ALTAR from the deployer's genesis balance,
@@ -1870,7 +2107,7 @@ mod tests {
     fn answer_starts_from_init_round_not_zero() {
         let init_round = 2_990_592u64;
         set_ctx(DEPLOYER, 0, round_start(init_round));
-        let mut c = Contract::new(DURATION, 5, 0.25, 1);
+        let mut c = Contract::new(DURATION, 5, 0.25, 1, acc(ORACLE));
         assert_eq!(c.init_round, init_round);
         // Seed + offer 10 in the init round (a lone offer, so it fails).
         seed(&mut c, ALICE, 10_000 * ONE);
@@ -1962,5 +2199,261 @@ mod tests {
     fn get_claimed_false_for_unclaimed() {
         let c = setup();
         assert!(!c.get_claimed(acc("nobody.testnet")));
+    }
+
+    // -- the Oracle ------------------------------------------------------
+
+    /// Seed the Oracle with 5,000 ALTAR: its reserve for 50 stakes.
+    fn seed_oracle(c: &mut Contract) {
+        seed(c, ORACLE, 5_000 * ONE);
+    }
+
+    /// The Oracle predicts `prediction` in demo `round`.
+    fn predict_as(c: &mut Contract, prediction: bool, round: u64) {
+        set_ctx(ORACLE, 1, round_start(round));
+        c.oracle_predict(prediction);
+    }
+
+    /// The Oracle's view, read in demo `round`.
+    fn oracle_view(c: &Contract, round: u64) -> OracleView {
+        set_ctx(ORACLE, 0, round_start(round));
+        c.get_oracle()
+    }
+
+    #[test]
+    fn oracle_params_present() {
+        let c = setup();
+        let p = c.get_params();
+        assert_eq!(p.oracle_account, ORACLE);
+        assert_eq!(p.oracle_stake, (100 * ONE).to_string());
+        assert_eq!(p.oracle_reward, (10 * ONE).to_string());
+    }
+
+    #[test]
+    fn oracle_predict_stores_prediction_and_locks_stake() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        predict_as(&mut c, true, 1);
+        // The stake left the Oracle's wallet into the contract.
+        assert_eq!(balance(&c, ORACLE), 4_900 * ONE);
+        assert_eq!(c.oracle_locked, 100 * ONE);
+        // The contract holds exactly the locked stake: vault 0,
+        // treasury 0, oracle_locked 100.
+        assert_eq!(balance(&c, CONTRACT_ID), 100 * ONE);
+        let v = oracle_view(&c, 1);
+        assert_eq!(v.oracle, ORACLE);
+        let pred = v.prediction.expect("prediction stored");
+        assert_eq!(pred.round_id, 1);
+        assert_eq!(pred.prediction, "Pass");
+        assert_eq!(pred.stake, (100 * ONE).to_string());
+        assert_eq!(v.correct, 0);
+        assert_eq!(v.wrong, 0);
+        assert_eq!(v.total_staked, (100 * ONE).to_string());
+        assert_eq!(v.stake_amount, (100 * ONE).to_string());
+        assert_eq!(v.reward_amount, (10 * ONE).to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "only the Oracle may predict")]
+    fn oracle_predict_non_oracle_panics() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 100_000 * ONE);
+        set_ctx(ALICE, 1, round_start(1));
+        c.oracle_predict(true);
+    }
+
+    #[test]
+    #[should_panic(expected = "already predicted this round")]
+    fn oracle_predict_twice_same_round_panics() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        predict_as(&mut c, true, 1);
+        predict_as(&mut c, false, 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn oracle_predict_insufficient_balance_panics() {
+        let mut c = setup();
+        seed(&mut c, ORACLE, 50 * ONE);
+        predict_as(&mut c, true, 1);
+    }
+
+    /// Correct prediction on a pass: the Oracle gets its 100 stake
+    /// back plus 10 from the Altar's share. Six offer 500 each in
+    /// round 1 (3,000, passes). Treasury 750 from the pass, minus the
+    /// 10 reward = 740. Supply 1,000,000 + 6,750 - 3,000 = 1,003,750.
+    #[test]
+    fn oracle_correct_on_pass_returns_stake_plus_reward() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_six_500(&mut c, 1);
+        predict_as(&mut c, true, 1);
+        let rec = answer_as(&mut c, 1);
+        assert_eq!(rec.status, "Passed");
+        assert_eq!(rec.oracle_prediction, Some("Pass".to_string()));
+        assert_eq!(rec.oracle_outcome, "correct");
+        assert_eq!(rec.oracle_rewarded, (10 * ONE).to_string());
+        assert_eq!(rec.oracle_burned, "0");
+        assert_eq!(balance(&c, ORACLE), 5_010 * ONE);
+        assert_eq!(c.get_altar_share(), (740 * ONE).to_string());
+        assert_eq!(supply(&c), 1_003_750 * ONE);
+        assert_eq!(c.oracle_locked, 0);
+        assert_eq!(balance(&c, CONTRACT_ID), 740 * ONE);
+        let v = oracle_view(&c, 2);
+        assert_eq!(v.correct, 1);
+        assert_eq!(v.wrong, 0);
+        assert_eq!(v.total_staked, (100 * ONE).to_string());
+        assert_eq!(v.total_rewarded, (10 * ONE).to_string());
+        assert_eq!(v.total_burned, "0");
+    }
+
+    /// Wrong prediction on a pass: the 100 stake is burned, like a
+    /// failed offering. Supply 1,000,000 + 6,750 - 3,000 - 100 =
+    /// 1,003,650. Treasury keeps the full 750.
+    #[test]
+    fn oracle_wrong_on_pass_burns_stake() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_six_500(&mut c, 1);
+        predict_as(&mut c, false, 1);
+        let rec = answer_as(&mut c, 1);
+        assert_eq!(rec.status, "Passed");
+        assert_eq!(rec.oracle_prediction, Some("Fail".to_string()));
+        assert_eq!(rec.oracle_outcome, "wrong");
+        assert_eq!(rec.oracle_rewarded, "0");
+        assert_eq!(rec.oracle_burned, (100 * ONE).to_string());
+        assert_eq!(balance(&c, ORACLE), 4_900 * ONE);
+        assert_eq!(c.get_altar_share(), (750 * ONE).to_string());
+        assert_eq!(supply(&c), 1_003_650 * ONE);
+        assert_eq!(c.oracle_locked, 0);
+        let v = oracle_view(&c, 2);
+        assert_eq!(v.correct, 0);
+        assert_eq!(v.wrong, 1);
+        assert_eq!(v.total_staked, (100 * ONE).to_string());
+        assert_eq!(v.total_rewarded, "0");
+        assert_eq!(v.total_burned, (100 * ONE).to_string());
+    }
+
+    /// Correct prediction on a fail when the Altar's share is empty:
+    /// the Oracle gets its stake back and no reward. Alice offers 500
+    /// alone in round 1 (fails), the Oracle predicted fail.
+    #[test]
+    fn oracle_correct_on_fail_no_reward_when_treasury_empty() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_as(&mut c, ALICE, 500 * ONE, 1);
+        predict_as(&mut c, false, 1);
+        let rec = answer_as(&mut c, 1);
+        assert_eq!(rec.status, "Failed");
+        assert_eq!(rec.oracle_prediction, Some("Fail".to_string()));
+        assert_eq!(rec.oracle_outcome, "correct");
+        assert_eq!(rec.oracle_rewarded, "0");
+        assert_eq!(rec.oracle_burned, "0");
+        assert_eq!(balance(&c, ORACLE), 5_000 * ONE);
+        assert_eq!(c.get_altar_share(), "0");
+        assert_eq!(supply(&c), 999_500 * ONE);
+        let v = oracle_view(&c, 2);
+        assert_eq!(v.correct, 1);
+        assert_eq!(v.total_rewarded, "0");
+    }
+
+    /// Correct prediction on a fail when the Altar's share holds 750
+    /// (after a round 1 pass): the Oracle gets its stake back plus 10,
+    /// and the share falls to 740.
+    #[test]
+    fn oracle_correct_on_fail_gets_reward_when_treasury_exists() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_six_500(&mut c, 1);
+        let r1 = answer_as(&mut c, 1);
+        assert_eq!(r1.status, "Passed");
+        assert_eq!(c.get_altar_share(), (750 * ONE).to_string());
+        offer_as(&mut c, ALICE, 500 * ONE, 2);
+        predict_as(&mut c, false, 2);
+        let r2 = answer_as(&mut c, 2);
+        assert_eq!(r2.status, "Failed");
+        assert_eq!(r2.oracle_outcome, "correct");
+        assert_eq!(r2.oracle_rewarded, (10 * ONE).to_string());
+        assert_eq!(balance(&c, ORACLE), 5_010 * ONE);
+        assert_eq!(c.get_altar_share(), (740 * ONE).to_string());
+        assert_eq!(supply(&c), 1_003_250 * ONE);
+    }
+
+    /// No prediction for a round: nothing happens to the Oracle, and
+    /// the record says so.
+    #[test]
+    fn oracle_no_prediction_nothing_happens() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_six_500(&mut c, 1);
+        let rec = answer_as(&mut c, 1);
+        assert_eq!(rec.status, "Passed");
+        assert_eq!(rec.oracle_prediction, None);
+        assert_eq!(rec.oracle_outcome, "none");
+        assert_eq!(rec.oracle_rewarded, "0");
+        assert_eq!(rec.oracle_burned, "0");
+        assert_eq!(balance(&c, ORACLE), 5_000 * ONE);
+        let v = oracle_view(&c, 2);
+        assert_eq!(v.correct, 0);
+        assert_eq!(v.wrong, 0);
+        assert_eq!(v.total_staked, "0");
+    }
+
+    /// The Answer settles rounds in order, so a prediction for round 1
+    /// is still resolved correctly even when the Oracle already
+    /// predicted round 2 before the Answer is called. Round 1 passes
+    /// (Oracle right), round 2 passes (Oracle wrong).
+    #[test]
+    fn oracle_predictions_resolve_in_order_when_answer_is_late() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_six_500(&mut c, 1);
+        predict_as(&mut c, true, 1);
+        offer_six_500(&mut c, 2);
+        predict_as(&mut c, false, 2);
+        // Answer from round 3 settles rounds 0, 1 and 2.
+        let rec = answer_as(&mut c, 2);
+        assert_eq!(rec.round_id, 2);
+        assert_eq!(rec.status, "Passed");
+        assert_eq!(rec.oracle_outcome, "wrong");
+        let r1 = c.get_round(1);
+        assert_eq!(r1.oracle_outcome, "correct");
+        assert_eq!(r1.oracle_rewarded, (10 * ONE).to_string());
+        // Oracle: 5,000 - 100 + 110 (round 1) - 100 (round 2 stake,
+        // burned) = 4,910.
+        assert_eq!(balance(&c, ORACLE), 4_910 * ONE);
+        // Treasury: 750 - 10 (round 1 reward) + 750 (round 2) = 1,490.
+        assert_eq!(c.get_altar_share(), (1_490 * ONE).to_string());
+        // Supply: 1,000,000 + 6,750 - 3,000 (round 1) + 6,750 - 3,000
+        // - 100 (round 2 oracle burn) = 1,007,400.
+        assert_eq!(supply(&c), 1_007_400 * ONE);
+        assert_eq!(c.oracle_locked, 0);
+        let v = oracle_view(&c, 3);
+        assert_eq!(v.correct, 1);
+        assert_eq!(v.wrong, 1);
+        assert_eq!(v.total_staked, (200 * ONE).to_string());
+        assert_eq!(v.total_rewarded, (10 * ONE).to_string());
+        assert_eq!(v.total_burned, (100 * ONE).to_string());
+    }
+
+    #[test]
+    fn oracle_view_empty_prediction() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        let v = oracle_view(&c, 0);
+        assert_eq!(v.oracle, ORACLE);
+        assert!(v.prediction.is_none());
+        assert_eq!(v.correct, 0);
+        assert_eq!(v.wrong, 0);
+        assert_eq!(v.total_staked, "0");
+        assert_eq!(v.total_rewarded, "0");
+        assert_eq!(v.total_burned, "0");
     }
 }

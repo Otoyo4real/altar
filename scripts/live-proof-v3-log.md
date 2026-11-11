@@ -1,0 +1,118 @@
+
+## Live proof — v3 demo (2026-11-11T08:32:28.674Z)
+
+Ran on altar-ritual-v3-demo.testnet (600s rounds, Oracle altar-oracle.testnet). The v2 contracts are abandoned.
+
+- storage_deposit altar-proof1.testnet: 2T8S6po4v484Urbh6dDNaEc1FbTDfFT5QhAKWtQYvCuN
+- ft_transfer 10000000000000000000000 -> altar-proof1.testnet: 82bLCP3PTDTt8X4y2Ridms5V36pag86jwTgAXX3eweny
+- balance altar-proof1.testnet: 10000000000000000000000
+- storage_deposit altar-proof2.testnet: cRrXpzFbXuqX8bsC96V75Dgxqpg31MTZn6wnQnCx4pe
+- ft_transfer 10000000000000000000000 -> altar-proof2.testnet: DYocCRcMMVFk2aZtvKA5nhHtrzaN4fFAL5dpRkmWSBEA
+- balance altar-proof2.testnet: 10000000000000000000000
+- storage_deposit altar-proof3.testnet: 9ZJYC978P2FukhHYHqwoZ4fVRNV8FVCXcU3pmpPn6R7J
+- ft_transfer 10000000000000000000000 -> altar-proof3.testnet: 2Xc44z7bc8zfE9zWEax2HYy3JvVprVTjXfFLa14FhA6S
+- balance altar-proof3.testnet: 10000000000000000000000
+- storage_deposit altar-proof4.testnet: FgoLAQ9jtNkLsCxy8DCdAkVG8h4SbvvgRW4ZEtYGSTyE
+- ft_transfer 10000000000000000000000 -> altar-proof4.testnet: FFdZKtiE45PkNu1EvEwT3fvQnpKqJB2HMB3zbJyxtqtR
+- balance altar-proof4.testnet: 10000000000000000000000
+- storage_deposit altar-proof5.testnet: 44SfSeesnTbFiTjZYSmKjAMhAJhXRkJAVdxT1wh3ehBt
+- ft_transfer 10000000000000000000000 -> altar-proof5.testnet: 4NyA4y6JgcqE3uwBmYrzd4gav7iHnubuf5fQQzSoGPG4
+- balance altar-proof5.testnet: 10000000000000000000000
+- storage_deposit altar-proof6.testnet: 2awmVcv4FccAsmZCDXEmqfnvdNDt6oEgRaRkDG2KKEb9
+- ft_transfer 10000000000000000000000 -> altar-proof6.testnet: DCPY89vMGJBDoNQgQujYegx2d4hfCPv4W3i5bqeR91h4
+- balance altar-proof6.testnet: 10000000000000000000000
+- oracle balance: 5000000000000000000000
+- get_oracle at start: {"oracle":"altar-oracle.testnet","prediction":null,"correct":0,"wrong":0,"total_staked":"0","total_rewarded":"0","total_burned":"0","stake_amount":"100000000000000000000","reward_amount":"10000000000000000000"}
+- storage_deposit altar-claim1.testnet: 4R3fs3DFruDh6RTDo3vTsYCWpTUYUXesEUsjY14iXJ5j
+- get_claimed altar-claim1.testnet before: false
+- claim altar-claim1.testnet: 83i4SzDRA2TmdhroDBKCiSy5khcznPrJwmeMcdUVbNDv
+-   balance altar-claim1.testnet: 100000000000000000000
+-   get_claimed altar-claim1.testnet after: true
+- storage_deposit altar-claim2.testnet: 21XmbpmK1hBr1nNfmzTUxRWNkaEm2iqWGWBGXSgkWpxR
+- get_claimed altar-claim2.testnet before: false
+- claim altar-claim2.testnet: DdwvBDghkNB6nYT8o7NjV2WgjRBntmRRABkoMWtjbUGd
+-   balance altar-claim2.testnet: 100000000000000000000
+-   get_claimed altar-claim2.testnet after: true
+- total_claimed in get_params: 200000000000000000000
+- second claim altar-claim1.testnet failed as expected: {"index":0,"kind":{"index":0,"kind":{"FunctionCallError":{"ExecutionError":"Smart contract panicked: panicked at src/lib.rs:719:9:\nalready claimed: one claim per wallet"}}}}
+- balance altar-claim1.testnet after failed second claim: 100000000000000000000
+- get_claimed altar-proof1.testnet (never claimed): false
+- FAIL round will be 2990643 (391s left, threshold 2500500000000000000000)
+- offer 10 altar-proof1.testnet: AiuujZH3jCJcqYT57mVq99tMNqUFe1p6q28fYCXoxpU9
+- offer 10 altar-proof2.testnet: 5Nknwgtap67QCjgQt7ffvtyc5bDAnZ13vUJ8XAWcrUqd
+- offer 10 altar-proof3.testnet: 4AMsuW88ijYy9x2ew1fetcBQKMBT8Rd4YFXG8HGGwHCh
+- offer 10 altar-proof4.testnet: 3LAEucuAY2usuj29Pz6qNsCTtdTj7ScHEbNq8A9Pcj2N
+- offer 10 altar-proof5.testnet: CZG84rdAQ42KSEfjESEGRXHb4sEVjeS1u33JFZDJooaH
+- offer 10 altar-proof6.testnet: 42PS9N8JASstieTQAezzB4ggM7HZ6DgKyxkTQjXCXDdk
+- offer 10 altar-claim1.testnet: J3cq11uhEJKsouUm8KWS6EdJmAA5VBBJFkPrzjocJpnG
+- offer 10 altar-claim2.testnet: 7M6xAUPsJSS43j9be2v53P93x4boi8htsPRvcCafusV4
+- round 2990643 after offers: total_offered=80000000000000000000 offerer_count=8 threshold=2500500000000000000000
+- round 2990643 ended; calling answer()
+- answer tx: FzoZh5gBkCpirwHjmDhQJAhFQ8qXmd5tsyLTnqavYgKd
+- round 2990643 record: {"round_id":2990643,"total_offered":"80000000000000000000","offerer_count":8,"status":"Failed","last_offerer":"altar-claim2.testnet","minted":"0","burned":"80000000000000000000","feast_paid":"0","streak_after":0,"oracle_prediction":null,"oracle_outcome":"none","oracle_rewarded":"0","oracle_burned":"0"}
+- supply after fail: 1000120000000000000000000
+- streak after fail: 0
+- balance altar-claim1.testnet after fail (90 expected): 90000000000000000000
+- balance altar-claim2.testnet after fail (90 expected): 90000000000000000000
+- PASS round will be 2990644 (595s left, threshold 2500300000000000000000)
+- offer 499 altar-proof1.testnet: GkJXCr3DszbBRqcPLU2KhFKKB9ZxfuYTudcNFWoCJ9gM
+- offer 499 altar-proof2.testnet: Az5M91eZkCdRr7PYGskj37vC6bSWtyXKmEMoKZzMQhEt
+- offer 499 altar-proof3.testnet: HG4N4wUAyLVpgmvYtnwhArbnUGyP42mNuc2gXmNSVc9a
+- offer 499 altar-proof4.testnet: BSxp31qf6BjXNsUejJafko5gnrf2EGzd91hZGqoDNNqY
+- offer 499 altar-proof5.testnet: FrrNftACWKRvR9Yj3SVSkwi1Lrw5fBzTCfUffF8JEqeX
+- offer 499 altar-proof6.testnet: DYQkzeovyrPDCjXvHuBvBPcCzoDgsFd4gumNkMxkVf4L
+- round 2990644 after offers: total_offered=2994000000000000000000 offerer_count=6 threshold=2500300000000000000000
+- round 2990644 ended; calling answer()
+- answer tx: 29Jj7Pkr2hd2Gco8mAX5j2pr6HHeRw8gkpfKh4SzMNXT
+- round 2990644 record: {"round_id":2990644,"total_offered":"2994000000000000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"6736500000000000000000","burned":"2994000000000000000000","feast_paid":"0","streak_after":1,"oracle_prediction":null,"oracle_outcome":"none","oracle_rewarded":"0","oracle_burned":"0"}
+- supply after pass: 1003862500000000000000000
+- streak after pass: 1
+- treasury after pass: 748500000000000000000
+- Oracle-correct round will be 2990645 (588s left, threshold 2507785000000000000000)
+- offer 501557000000000000000 altar-proof1.testnet: 26m9HHDefSxbGSYUda1HJRSSFhScHaxsfpTB7MT3YzHa
+- offer 501557000000000000000 altar-proof2.testnet: 9EMeXgaHPYVN87BY52E4UBUeszpDaqCFSrT3VQprWkuQ
+- offer 501557000000000000000 altar-proof3.testnet: A7Aqv92xYVcVSM9oX5hGv7KtUx2e6zkxzTrMYo5Uog9N
+- offer 501557000000000000000 altar-proof4.testnet: Cpb9uSxMcqmjtMccwkuLk25QMW7kkBFDDtNHk3TwAtXh
+- offer 501557000000000000000 altar-proof5.testnet: C99yjnzbWSc7HMVrvmnvWGxqC4KYYLqp6irBmgL3E5KL
+- offer 501557000000000000000 altar-proof6.testnet: Dwh1ydUWXfgKFjf1bnLBbGYeYyH4vkndURG3ywLYDsm8
+- round 2990645 after offers: total_offered=3009342000000000000000 offerer_count=6 threshold=2507785000000000000000
+- oracle agent: oracle: contract altar-ritual-v3-demo.testnet round 2990645, ends in 571s
+- oracle agent: oracle: offered 3009342000000000000000 of line 2507785000000000000000, offerers 6 of 5, streak 1
+- oracle agent: oracle: rule says PASS (Offered 120% of the line with 120% of the offerers needed, so I expect a pass.)
+- oracle agent: oracle: prediction PASS — Offered 120% of the line with 120% of the offerers needed, so I expect a pass.
+- oracle agent: Receipt: 85L5rNQmVvixFFQ7o37W5aJo2qRLsycjS5nFSRcGJwVA
+- oracle agent: 	Log [altar-ritual-v3-demo.testnet]: EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"altar-oracle.testnet","new_owner_id":"altar-ritual-v3-demo.testnet","amount":"100000000000000000000"}]}
+- oracle agent: oracle: oracle_predict tx: 95TihoG2CmLaGNRjKhPvEXiVDXTTA1p2tLE9vKCxQAPM
+- oracle agent: oracle: get_oracle after: {"oracle":"altar-oracle.testnet","prediction":{"round_id":2990645,"prediction":"Pass","stake":"100000000000000000000"},"correct":0,"wrong":0,"total_staked":"100000000000000000000","total_rewarded":"0","total_burned":"0","stake_amount":"100000000000000000000","reward_amount":"10000000000000000000"}
+- oracle agent: ORACLE PREDICTED
+- get_oracle in round 2990645: {"oracle":"altar-oracle.testnet","prediction":{"round_id":2990645,"prediction":"Pass","stake":"100000000000000000000"},"correct":0,"wrong":0,"total_staked":"100000000000000000000","total_rewarded":"0","total_burned":"0","stake_amount":"100000000000000000000","reward_amount":"10000000000000000000"}
+- oracle balance after staking (4,900 expected): 4900000000000000000000
+- round 2990645 ended; calling answer()
+- answer tx: 5HmP5CTJGnneJWcK5xtD7wKyHwHsWmUwRo5pfQAQ6D8C
+- round 2990645 record: {"round_id":2990645,"total_offered":"3009342000000000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"6771019500000000000000","burned":"3009342000000000000000","feast_paid":"0","streak_after":2,"oracle_prediction":"Pass","oracle_outcome":"correct","oracle_rewarded":"10000000000000000000","oracle_burned":"0"}
+- oracle balance after correct prediction (5,010 expected): 5010000000000000000000
+- get_oracle after round 2990645: {"oracle":"altar-oracle.testnet","prediction":null,"correct":1,"wrong":0,"total_staked":"100000000000000000000","total_rewarded":"10000000000000000000","total_burned":"0","stake_amount":"100000000000000000000","reward_amount":"10000000000000000000"}
+- streak after round 2990645: 2
+- treasury after round 2990645: 1490835500000000000000
+- Oracle-wrong round will be 2990646 (582s left, threshold 2515333355000000000000)
+- offer 503066671000000000000 altar-proof1.testnet: GowSBjhm6X7Kvj6rCxi6ht1uyXEd2WV6aPAFCZwZAeod
+- offer 503066671000000000000 altar-proof2.testnet: 61cGvCt8jCziYxCS5F3cJcY788QSCrxLcaNpiipsxsgS
+- offer 503066671000000000000 altar-proof3.testnet: 4JPDqa3ttbbHx8EXUHhmkxvDA6M1o3fq6BT8iGDctTFM
+- offer 503066671000000000000 altar-proof4.testnet: GvxLy41SpLixW9f2ogtYn2JFMZniEG3hLbxDoXfoCTvG
+- offer 503066671000000000000 altar-proof5.testnet: 4NVs3NPVtiUW6rTwZ2kWNzNW8JhWhUU7wiqXLgBsBrPr
+- offer 503066671000000000000 altar-proof6.testnet: 5jMZgnod6HTgzuQUgAtkCJtrci8SR9kgHaKvivPgxQgT
+- round 2990646 after offers: total_offered=3018400026000000000000 offerer_count=6 threshold=2515333355000000000000
+- oracle agent: oracle: contract altar-ritual-v3-demo.testnet round 2990646, ends in 565s
+- oracle agent: oracle: offered 3018400026000000000000 of line 2515333355000000000000, offerers 6 of 5, streak 2
+- oracle agent: oracle: rule says PASS (Offered 120% of the line with 120% of the offerers needed, so I expect a pass.)
+- oracle agent: oracle: FORCED prediction FAIL (against the rule, which says PASS)
+- oracle agent: oracle: prediction FAIL [FORCED] — Offered 120% of the line with 120% of the offerers needed, so I expect a pass.
+- oracle agent: Receipt: 97aPo3kosftML3FVT8VQdGXt8XsDDGwK8J692PgiR8xq
+- oracle agent: 	Log [altar-ritual-v3-demo.testnet]: EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"altar-oracle.testnet","new_owner_id":"altar-ritual-v3-demo.testnet","amount":"100000000000000000000"}]}
+- oracle agent: oracle: oracle_predict tx: 7CyqZsS97kFbvzojTvaHDahnUKytYVe4Yi4FojwLSYZe
+- oracle agent: oracle: get_oracle after: {"oracle":"altar-oracle.testnet","prediction":{"round_id":2990646,"prediction":"Fail","stake":"100000000000000000000"},"correct":1,"wrong":0,"total_staked":"200000000000000000000","total_rewarded":"10000000000000000000","total_burned":"0","stake_amount":"100000000000000000000","reward_amount":"10000000000000000000"}
+- oracle agent: ORACLE PREDICTED
+- get_oracle in round 2990646: {"oracle":"altar-oracle.testnet","prediction":{"round_id":2990646,"prediction":"Fail","stake":"100000000000000000000"},"correct":1,"wrong":0,"total_staked":"200000000000000000000","total_rewarded":"10000000000000000000","total_burned":"0","stake_amount":"100000000000000000000","reward_amount":"10000000000000000000"}
+- oracle balance after staking (4,910 expected): 4910000000000000000000
+- round 2990646 ended; calling answer()
+- answer tx: EBqkCY5sQYAf4Ltb8PnS7XxtQa9CpFhveuyEXZxyzbfS
