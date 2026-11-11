@@ -6,6 +6,8 @@ Humans must sacrifice together. The machine must predict. The altar decides.
 
 ALTAR is a daily offering ritual. The community offers together before midnight. The Oracle, a NEAR AI agent, bets its own coins on whether the offering will pass. The Altar decides if it wins or loses.
 
+VeilProof and ALTAR are built by one person — Joseph.
+
 ## The Offering
 
 The altar only answers when the offering is enough.
@@ -14,7 +16,7 @@ Offer before midnight. If enough offer together, everyone gets back at least dou
 
 $ALTAR is a memecoin that only grows when enough holders offer some of their own coins together before midnight. Miss the daily offering and the offered coins are gone forever and the supply shrinks.
 
-One contract, one NEP-141 token, no owner, no pause, no setters. Every parameter is an immutable constant set at launch, readable by anyone through `get_params()`.
+One contract, one NEP-141 token, no owner methods, no pause, no setters. Every parameter is an immutable constant set at launch, readable by anyone through `get_params()`. That is the contract's interface: the deployer account still holds a full-access key that could replace the code, so this is not proof of immutability — the key has not been removed on testnet.
 
 **The Offering.** One round is one UTC day. Any holder calls `offer(amount)` once per day. Minimum 10 ALTAR. Maximum is the smaller of 5% of your own balance and 0.05% of circulating supply, scaled by your reputation (see below). The offered coins leave your wallet immediately into the contract vault. They are at risk now, before the outcome is known. That risk is the whole point.
 
@@ -109,7 +111,7 @@ The live proofs for every step above are in `scripts/dormant-proof-v5-log.md` (v
 | D, one whale, always pass | Same supply as A | Same as A | 60 |
 | E, whale split into 40 fresh wallets | 5,004,368.63 (+400.44%) | 91,311.58 | 53 |
 
-Scenario D: the whale's share of the offered is exactly 2.5% every day, so it takes at most 2.5% of the pass reward, and its share of circulating falls from 40% to 7.72%. Under the old 5% of balance rule alone, the same whale could have offered the full 2% gate by itself on day 1. The 0.05% cap stops the day-1 version of that. It does not stop a patient split, which is scenario E.
+Scenario D: the whale's share of the offered ramps with its reputation factor — 0.36% on day 1, full 2.5% from day 7 — so it takes at most 2.5% of the pass reward, and its share of circulating falls from 40% to 7.70%. Under the old 5% of balance rule alone, the same whale could have offered the full 2% gate by itself on day 1. The 0.05% cap stops the day-1 version of that. It does not stop a patient split, which is scenario E.
 
 Scenario E: in round 1 the split offers 40 times 10 = 400 against the 20,000 gate, which is 2% of what is needed. It would take 2,000 fresh wallets to reach the gate in round 1. After a 7 round wait the 40 wallets reach full reputation and can pass alone, ending at 90.47% of circulating. The price is a week of holding, 400,000 ALTAR locked across 40 wallets, and the full gate offered at risk every round.
 
@@ -123,8 +125,9 @@ Scenario E: in round 1 the split offers 40 times 10 = 400 against the 20,000 gat
 - **The quiet tithe waits for a sweep.** The tithe accrues onchain, but the coins only move when someone calls `sweep_quiet(account)`. Nobody is forced to sweep, so a quiet wallet's tithe can sit uncollected; the site shows what is due, and the proof scripts sweep it. The Oracle and the altar itself are never charged.
 - **The quiet tithe can discourage holders.** A holder who buys ALTAR and simply holds, without offering, loses 1% of balance per quiet day after the 7 day grace, which can feel like a penalty for holding. The cost is stated on the Altar page before the claim button, not only on the Ritual page.
 - **The demo is a demo.** It uses 10 minute rounds, 5 offerers, a 0.25% gate, and 1 reputation round. The cap, the multipliers, the treasury rule, and the reputation rule are the real ones.
-- **The faucet is testnet only.** It mints new supply (100 per claim, 100,000 total), separate from the ritual mint. One claim per wallet, enforced onchain; the site disables the button once a wallet has claimed. It exists so anyone can try the ritual without asking the deployer for tokens. It does not exist on mainnet.
+- **The faucet is testnet only.** It mints new supply (100 per claim, 100,000 total), separate from the ritual mint. One claim per wallet, enforced onchain; the site disables the button once a wallet has claimed. It exists so anyone can try the ritual without asking the deployer for tokens. It is testnet-only by deployment, not by a code gate: the claim function is in the source and compiled into the artifact, so a mainnet deployment would need a faucet-free build.
 - **The Oracle is a NEAR AI agent, on VeilProof's NEAR AI key.** The prediction comes from the language model z-ai/glm-5.3-flash on NEAR AI Cloud, reasoning about the live round state, using VeilProof's NEAR AI key (connector custom.near-ai-veilproof). It can be wrong, and when it is wrong it loses 100 ALTAR like any failed offering. Its stake does not count toward the gate, and it cannot move the outcome. The Oracle wallet holds a 5,000 ALTAR fund (50 stakes). The agent script tops it up on its own: whenever the fund falls below 500 ALTAR, the script transfers 1,000 more from the deployer (the genesis holder), so the Oracle never stops predicting for lack of stake. The burn stays real: a wrong prediction destroys 100 ALTAR from supply; the top-up is a fresh transfer from the reserve, not a refund of the burn. The reserve is the deployer's remaining genesis balance (937,230 ALTAR on demo, 995,000 on production at 2026-11-11), so it is finite: one top-up buys 10 more stakes, not forever. That top-up is a prototype mechanism, not a self-sustaining funding model: the Oracle does not earn its own stake, and when the deployer's reserve runs out the top-ups stop and the Oracle can only predict while its own fund lasts. The Oracle is one wallet, so its prediction is one agent's read of the round, not a consensus.
+- **Security review (2026-11-11, static, not a formal audit).** A source review found the contract sound as a testnet prototype but not production-ready. Fixed from it: the Scenario D simulation now applies the reputation factor (it used to overstate the whale's first week), and the wording above is honest about the upgrade key and the faucet. Deliberately left, because this is a testnet demo and not mainnet: the contract pays storage for game state with no per-user charge (about 7.4 NEAR of runway on production at 2026-11-11); the faucet is not code-gated; the deployer key has not been removed; a late settlement can make the next round's snapshot include the unsettled vault; offers scan a growing list; the history view takes an unclamped limit; Oracle metadata has no length cap. None of these is fixed onchain in v5.
 
 ## Build, test, and deploy
 

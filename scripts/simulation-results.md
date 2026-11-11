@@ -109,30 +109,31 @@ passes; what differs is who gets the reward.
 | Day | Total supply | Treasury | Circulating | Streak | Whale balance | Whale share of circulating |
 |----:|---:|---:|---:|---:|---:|---:|
 | 0 | 1,000,000.00 | 0.00 | 1,000,000.00 | 0 | 400,000.00 | 40.00% |
-| 7 | 1,208,710.48 | 0.00 | 1,208,710.48 | 7 | 405,217.76 | 33.52% |
-| 30 | 2,640,469.04 | 25,022.88 | 2,615,446.15 | 30 | 440,386.15 | 16.84% |
-| 60 | 7,310,545.40 | 133,390.95 | 7,177,154.45 | 60 | 554,428.86 | 7.72% |
+| 7 | 1,208,710.48 | 0.00 | 1,208,710.48 | 7 | 403,161.47 | 33.35% |
+| 30 | 2,640,469.04 | 25,022.88 | 2,615,446.15 | 30 | 438,329.86 | 16.76% |
+| 60 | 7,310,545.40 | 133,390.95 | 7,177,154.45 | 60 | 552,372.57 | 7.70% |
 
 - Total minted (gross): 9,946,649.86 ALTAR
 - Total burned (offered consumed): 3,636,104.46 ALTAR
 - Total offered: 3,636,104.46 ALTAR
 - Net supply change: 6,310,545.40 ALTAR (631.05%)
 - Feasts: 8 (days 7, 14, 21, 28, 35, 42, 49, 56), total distributed 775,635.17 ALTAR
-- Whale offered (total over 60 days): 90,902.61 ALTAR
-- Whale received (total): 245,331.47 ALTAR (offerers' reward 225,940.59 + Feast shares 19,390.88)
-- Whale's share of total offered: exactly 2.50% every day (max = min = 2.50%)
-- Whale's share of the pass reward: 2.5% every day — the offerers' reward
+- Whale offered (total over 60 days): 89,350.07 ALTAR
+- Whale received (total): 241,722.64 ALTAR (offerers' reward 222,719.90 + Feast shares 19,002.74)
+- Whale's share of total offered: max 2.50%, min 0.36% — it ramps with the reputation factor (0.36% on day 1, 2.5% from day 7)
+- Whale's share of the pass reward: same ramp — the offerers' reward
   and the Feast shares are both paid pro-rata on what was offered
 - The 0.05%-of-circulating cap bound on 60/60 days; the 5%-of-balance cap never bound
 - Under the OLD rule (5% of balance only) the whale could have offered
   20,000.00 on day 1 — the full 2% gate, alone
-- Whale final balance: 554,428.86 ALTAR (7.72% of circulating, down from 40.00% at start)
+- Whale final balance: 552,372.57 ALTAR (7.70% of circulating, down from 40.00% at start)
 
 **Interpretation:** The whale does well in absolute terms — it turns 400,000
-into 554,428.86 over 60 days — but it never dominates
-the ritual: it offers exactly a fortieth (2.5%) of every round and takes
-exactly 2.5% of every reward, while the other offerers take the other 97.5%.
-Its share of circulating actually falls (40% → 7.72%),
+into 552,372.57 over 60 days — but it never dominates
+the ritual: it offers at most a fortieth (2.5%) of every round — only 0.36%
+on day 1, ramping to 2.5% by day 7 — and takes the same share of every
+reward, while the other offerers take the rest.
+Its share of circulating actually falls (40% → 7.70%),
 because it only captures 2.5% of each day's new supply while the rest of
 the community captures the other 97.5%.
 
@@ -226,11 +227,12 @@ exact day depends on what the community does during the wait.
 - Day-1 spot check (Scenario A): offered 20,000, mint 45,000, offerers get
   40,000, treasury 5,000, net supply change +25,000, supply 1,025,000,
   streak 1 — matches the hand calculation.
-- Day-1 spot check (Scenario D): whale offers 500 of 20,000 total (2.5%),
-  receives 1,000 of the offerers' 40,000, balance 400,500 — matches the
-  hand calculation.
-- Whale bound checked every day: whale share of total offered is exactly
-  2.5% on all 60 days; the 0.05%-of-circulating cap bound every day.
+- Day-1 spot check (Scenario D): whale offers 71.43 of 20,000 total (0.36%),
+  receives 142.86 of the offerers' 40,000, balance 400,071.43 — matches the
+  hand calculation (reputation factor 1/7 on day 1).
+- Whale bound checked every day: whale share of total offered ramps from
+  0.36% (day 1) to 2.5% (day 7 onward) and never exceeds 2.5%;
+  the reputation-scaled 0.05%-of-circulating cap bound every day.
 - Whale conservation checked: final balance = 400,000 + rewards received
   − offered.
 - Round-1 spot check (Scenario E): each fresh wallet's max offer is exactly

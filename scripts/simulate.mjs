@@ -162,7 +162,11 @@ function simulate(name, passesOnDay) {
 // ---- Scenario D — Whale attempt (always pass, new max-offer cap) ----
 // One whale starts with 400,000 ALTAR (40% of circulating) and offers the
 // maximum allowed every day: min(5% of its current balance, 0.05% of current
-// circulating), minimum 10 ALTAR. The rest of the community offers the
+// circulating x reputation factor), minimum 10 ALTAR. The whale held from
+// genesis, so its factor ramps 1/7 on day 1 to full 1 on day 7; its share
+// of the offering ramps with it (0.025/7 on day 1, 2.5% from day 7 on).
+// The rest of the community offers the remainder so the round passes at
+// exactly the 2% threshold. Same corrected pass accounting as scenarios A–C.
 // remainder so the round passes at exactly the 2% threshold. Same corrected
 // pass accounting as scenarios A–C. The whale's balance changes each day by
 // -(its offer) + (its pro-rata share of the offerers' reward), plus its
@@ -206,10 +210,15 @@ function simulateWhale() {
   for (let day = 1; day <= DAYS; day++) {
     const circulating = totalSupply - treasury;
     const offered = OFFER_RATE * circulating;
-    const balanceCap = WHALE_BALANCE_CAP_RATE * whaleBalance;
-    const supplyCap = WHALE_SUPPLY_CAP_RATE * circulating;
-    const whaleOffer = Math.max(MIN_OFFER, Math.min(balanceCap, supplyCap));
+    // The whale held from genesis, so on day d it has held for d rounds:
+    // its reputation factor is d/7, full only from day 7. The 0.05% cap
+    // is scaled by that factor, exactly as the contract's max_offer_for
+    // does. (The cap used to be inlined here without the factor, which
+    // overstated the whale's first week: day 1 is 500/7, not 500.)
+    const whaleOffer = maxOffer(whaleBalance, circulating, day);
     const whaleShare = whaleOffer / offered;
+    const supplyCap = WHALE_SUPPLY_CAP_RATE * circulating * reputationFactor(day);
+    const balanceCap = WHALE_BALANCE_CAP_RATE * whaleBalance;
     if (supplyCap < balanceCap) supplyCapBindsDays += 1;
     maxWhaleShare = Math.max(maxWhaleShare, whaleShare);
     minWhaleShare = Math.min(minWhaleShare, whaleShare);
@@ -493,30 +502,33 @@ for (const s of scenarios) {
 }
 
 // ---- Verification: hand-check day 1 of scenario D (whale) ----
-// circulating 1,000,000; total offered 20,000; whale cap =
-// min(5% * 400,000 = 20,000, 0.05% * 1,000,000 = 500) = 500;
-// whale share 2.5%; offerers get (2.25 - 0.25) * 20,000 = 40,000, of which
-// the whale receives 2.5% = 1,000; whale balance 400,000 - 500 + 1,000
-// = 400,500; supply 1,025,000; treasury 5,000; streak 1.
+// circulating 1,000,000; total offered 20,000; the whale held from
+// genesis, so on day 1 its reputation factor is 1/7 and its cap is
+// min(5% * 400,000 = 20,000, 0.05% * 1,000,000 * 1/7 = 500/7) = 500/7;
+// whale share (500/7)/20,000 = 0.025/7; offerers get
+// (2.25 - 0.25) * 20,000 = 40,000, of which the whale receives
+// 0.025/7 = 1000/7; whale balance 400,000 - 500/7 + 1000/7
+// = 400,000 + 500/7; supply 1,025,000; treasury 5,000; streak 1.
 const dDay1 = scenarioD.daily[0];
-const expectedD1 = { offered: 20000, whaleOffer: 500, whaleShare: 0.025, totalSupply: 1025000, treasury: 5000, streak: 1, whaleBalance: 400500 };
+const expectedD1 = { offered: 20000, whaleOffer: 500/7, whaleShare: (500/7)/20000, totalSupply: 1025000, treasury: 5000, streak: 1, whaleBalance: 400000 + 500/7 };
 for (const [k, v] of Object.entries(expectedD1)) {
   if (Math.abs(dDay1[k] - v) > 1e-6) {
     throw new Error(`Day-1 spot check failed (Scenario D): ${k} = ${dDay1[k]}, expected ${v}`);
   }
 }
-// Whale offerer reward on day 1: 2.5% of the offerers' 40,000 = 1,000.
-if (Math.abs((2.25 - TREASURY_SHARE) * dDay1.whaleOffer - 1000) > 1e-6) {
+// Whale offerer reward on day 1: (2.25 - 0.25) * (500/7) = 1000/7.
+if (Math.abs((2.25 - TREASURY_SHARE) * dDay1.whaleOffer - 1000/7) > 1e-6) {
   throw new Error(`Day-1 whale reward check failed (Scenario D)`);
 }
-// Whale bound: the whale's share of total offered never exceeds 2.5% —
-// and is exactly 2.5% every day, because the 0.05%-of-circulating cap binds
+// Whale bound: the whale's share of total offered never exceeds 2.5%.
+// It ramps with the reputation factor — 0.025/7 on day 1, full 2.5%
+// from day 7 onward — because the reputation-scaled 0.05% cap binds
 // every day (the 5%-of-balance cap never does).
 if (scenarioD.totals.maxWhaleShare > 0.025 + 1e-9) {
   throw new Error(`Whale bound failed: max share ${scenarioD.totals.maxWhaleShare}`);
 }
-if (Math.abs(scenarioD.totals.minWhaleShare - 0.025) > 1e-9) {
-  throw new Error(`Whale share not exactly 2.5% every day: min ${scenarioD.totals.minWhaleShare}`);
+if (Math.abs(scenarioD.totals.minWhaleShare - 0.025/7) > 1e-9) {
+  throw new Error(`Whale share does not ramp from 0.025/7: min ${scenarioD.totals.minWhaleShare}`);
 }
 if (scenarioD.totals.supplyCapBindsDays !== DAYS) {
   throw new Error(`Supply cap did not bind every day: ${scenarioD.totals.supplyCapBindsDays}/${DAYS}`);
@@ -662,8 +674,8 @@ for (const s of scenarios) printScenario(s);
 printScenario(scenarioD);
 console.log(`  Whale offered (total):       ${fmt(scenarioD.totals.whaleOffered)} ALTAR`);
 console.log(`  Whale received (total):      ${fmt(scenarioD.totals.whaleReward)} ALTAR (offerers' reward ${fmt(scenarioD.totals.whaleOffererReward)} + Feast shares ${fmt(scenarioD.totals.whaleFeastTotal)})`);
-console.log(`  Whale share of total offered: max ${(scenarioD.totals.maxWhaleShare * 100).toFixed(2)}%, min ${(scenarioD.totals.minWhaleShare * 100).toFixed(2)}% (exactly 2.5% every day)`);
-console.log(`  Whale share of pass reward:  2.5% every day (rewards are pro-rata on offered)`);
+console.log(`  Whale share of total offered: max ${(scenarioD.totals.maxWhaleShare * 100).toFixed(2)}%, min ${(scenarioD.totals.minWhaleShare * 100).toFixed(2)}% (ramps 0.36% on day 1 to 2.5% from day 7)`);
+console.log(`  Whale share of pass reward:  ramps 0.36% (day 1) to 2.5% (day 7+) (rewards are pro-rata on offered)`);
 console.log(`  0.05%-of-circulating cap bound on ${scenarioD.totals.supplyCapBindsDays}/${DAYS} days (5%-of-balance cap never bound)`);
 console.log(`  Whale final balance:         ${fmt(scenarioD.final.whaleBalance)} ALTAR (${(scenarioD.final.whaleShareOfCirculating * 100).toFixed(2)}% of circulating, down from 40.00% at start)`);
 console.log(`  Under OLD rule (5% of balance only), whale could offer ${fmt(scenarioD.totals.oldRuleDay1Offer)} on day 1 — the full 2% gate, alone`);
@@ -689,7 +701,7 @@ console.log(`  Split received (total):      ${fmt(scenarioE.totals.splitReward)}
 console.log(`  Split passed alone on ${scenarioE.totals.soloPassDays}/${DAYS - SPLIT_WAIT_DAYS} days after the wait; 0.05%-of-circulating cap bound on ${scenarioE.totals.supplyCapBindsDays}/${DAYS - SPLIT_WAIT_DAYS} solo days (5%-of-balance cap never bound)`);
 console.log(`  Split final balance:         ${fmt(scenarioE.final.splitBalance)} ALTAR (${(scenarioE.final.splitShareOfCirculating * 100).toFixed(2)}% of circulating, up from 40.00% at start)`);
 console.log("\nDay-1 spot check (Scenario A) passed: offered 20,000, mint 45,000, supply 1,025,000, treasury 5,000, streak 1.");
-console.log("Day-1 spot check (Scenario D) passed: whale offers 500 of 20,000 total (2.5%), receives 1,000 of the offerers' 40,000, balance 400,500.");
+console.log(`Day-1 spot check (Scenario D) passed: whale offers ${dDay1.whaleOffer.toFixed(2)} of 20,000 total (${(dDay1.whaleShare * 100).toFixed(2)}%), receives ${((2.25 - TREASURY_SHARE) * dDay1.whaleOffer).toFixed(2)} of the offerers' 40,000, balance ${dDay1.whaleBalance.toFixed(2)}.`);
 console.log(`Round-1 spot check (Scenario E) passed: fresh wallets offer ${fmt(scenarioE.round1.perWalletCap)} each, 40 x 10 = ${fmt(scenarioE.round1.collective)} vs the ${fmt(scenarioE.round1.gate)} gate (2.00%); ${scenarioE.round1.walletsNeeded.toLocaleString("en-US")} fresh wallets would be needed to reach the gate.`);
 console.log(`Day-8 spot check (Scenario E) passed: factor 1, each wallet offers ${fmt(scenarioE.daily[7].perWalletCap)} (supply cap binds), collective ${fmt(scenarioE.daily[7].splitCollectiveMax)} = the gate exactly; solo pass from day 8.`);
 console.log("Whale bound verified: whale share of offered <= 2.5% every day; supply cap bound 60/60 days.");
@@ -807,8 +819,8 @@ ${[0, 7, 30, 60].map((d) => { const sn = scenarioD.snapshots[d]; return `| ${d} 
 - Feasts: ${scenarioD.totals.feastCount} (days 7, 14, 21, 28, 35, 42, 49, 56), total distributed ${fmt(scenarioD.totals.feastTotal)} ALTAR
 - Whale offered (total over 60 days): ${fmt(scenarioD.totals.whaleOffered)} ALTAR
 - Whale received (total): ${fmt(scenarioD.totals.whaleReward)} ALTAR (offerers' reward ${fmt(scenarioD.totals.whaleOffererReward)} + Feast shares ${fmt(scenarioD.totals.whaleFeastTotal)})
-- Whale's share of total offered: exactly ${(scenarioD.totals.maxWhaleShare * 100).toFixed(2)}% every day (max = min = 2.50%)
-- Whale's share of the pass reward: 2.5% every day — the offerers' reward
+- Whale's share of total offered: max ${(scenarioD.totals.maxWhaleShare * 100).toFixed(2)}%, min ${(scenarioD.totals.minWhaleShare * 100).toFixed(2)}% — it ramps with the reputation factor (0.36% on day 1, 2.5% from day 7)
+- Whale's share of the pass reward: same ramp — the offerers' reward
   and the Feast shares are both paid pro-rata on what was offered
 - The 0.05%-of-circulating cap bound on ${scenarioD.totals.supplyCapBindsDays}/${DAYS} days; the 5%-of-balance cap never bound
 - Under the OLD rule (5% of balance only) the whale could have offered
@@ -817,8 +829,9 @@ ${[0, 7, 30, 60].map((d) => { const sn = scenarioD.snapshots[d]; return `| ${d} 
 
 **Interpretation:** The whale does well in absolute terms — it turns 400,000
 into ${fmt(scenarioD.final.whaleBalance)} over 60 days — but it never dominates
-the ritual: it offers exactly a fortieth (2.5%) of every round and takes
-exactly 2.5% of every reward, while the other offerers take the other 97.5%.
+the ritual: it offers at most a fortieth (2.5%) of every round — only 0.36%
+on day 1, ramping to 2.5% by day 7 — and takes the same share of every
+reward, while the other offerers take the rest.
 Its share of circulating actually falls (40% → ${(scenarioD.final.whaleShareOfCirculating * 100).toFixed(2)}%),
 because it only captures 2.5% of each day's new supply while the rest of
 the community captures the other 97.5%.
@@ -909,11 +922,12 @@ exact day depends on what the community does during the wait.
 - Day-1 spot check (Scenario A): offered 20,000, mint 45,000, offerers get
   40,000, treasury 5,000, net supply change +25,000, supply 1,025,000,
   streak 1 — matches the hand calculation.
-- Day-1 spot check (Scenario D): whale offers 500 of 20,000 total (2.5%),
-  receives 1,000 of the offerers' 40,000, balance 400,500 — matches the
-  hand calculation.
-- Whale bound checked every day: whale share of total offered is exactly
-  2.5% on all 60 days; the 0.05%-of-circulating cap bound every day.
+- Day-1 spot check (Scenario D): whale offers 71.43 of 20,000 total (0.36%),
+  receives 142.86 of the offerers' 40,000, balance 400,071.43 — matches the
+  hand calculation (reputation factor 1/7 on day 1).
+- Whale bound checked every day: whale share of total offered ramps from
+  0.36% (day 1) to 2.5% (day 7 onward) and never exceeds 2.5%;
+  the reputation-scaled 0.05%-of-circulating cap bound every day.
 - Whale conservation checked: final balance = 400,000 + rewards received
   − offered.
 - Round-1 spot check (Scenario E): each fresh wallet's max offer is exactly
