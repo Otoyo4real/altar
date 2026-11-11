@@ -24,6 +24,11 @@
 <main>
   <p id="pageStatus" aria-live="polite"></p>
 
+  <section class="warn" aria-label="Holding has a cost">
+    <h2>Holding has a cost.</h2>
+    <p>ALTAR is not a coin you hold and forget. If you hold it and do not offer for 1 round, the altar takes 1% of your coins per quiet round as tithe, into its share, which feeds the Feast. Offer once and the clock resets. The Oracle and the altar itself never pay tithe. Full detail on the <a href="ritual.html">Ritual</a> page.</p>
+  </section>
+
   <section aria-label="The Offering">
     <h2>The Offering</h2>
     <p class="rule">The altar only answers when the offering is enough.</p>
@@ -49,6 +54,7 @@
     <div class="offer-box">
       <button class="claim" id="claimBtn" type="button" disabled>Claim 100 test ALTAR</button>
       <p class="hint" id="claimNote">Connect your wallet to claim 100 free test ALTAR, once per wallet.</p>
+      <p class="hint">Claiming means holding. Holders who do not offer for 1 round pay 1% per quiet round as tithe.</p>
       <label for="offerAmount">Amount in ALTAR</label>
       <input id="offerAmount" type="text" inputmode="decimal" autocomplete="off">
       <p class="hint">Your balance: <span id="myBalance">&mdash;</span> ALTAR</p>
@@ -126,6 +132,7 @@
 
   <section aria-label="Past rounds" id="rounds">
     <h2>Past rounds</h2>
+    <p class="hint legend"><span class="sw pass"></span>Passed <span class="sw fail"></span>Failed <span class="sw mint"></span>Minted <span class="sw burn"></span>Burned <span class="sw feast"></span>Feast payout <span class="sw oracle"></span>Oracle lost</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -140,7 +147,7 @@
 </main>
 <footer>
   <p>ALTAR is a memecoin on NEAR testnet. No real funds.</p>
-  <p class="contract">Contract <span id="contractId">altar.testnet</span></p>
+  <p class="contract">Contract <span id="contractId">altar-ritual-v5-demo.testnet</span></p>
   <p><a href="https://github.com/Otoyo4real/altar">Otoyo4real/altar on GitHub</a></p>
 </footer>
 <script>window.ALTAR_DEMO_PAGE = true;</script>

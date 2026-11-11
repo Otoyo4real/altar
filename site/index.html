@@ -27,8 +27,13 @@
   <p class="rule">ALTAR is a memecoin with a daily offering ritual. The community offers together before midnight. The Oracle, a NEAR AI agent, bets its own coins on whether the offering will pass. The humans decide if it wins or loses.</p>
 </div>
 <main>
-  <p class="notice" id="notLive">The altar is not live yet. The offering opens when the contract is deployed.</p>
+  <p class="notice" id="notLive">The altar could not be reached. Check your connection and reload.</p>
   <p id="pageStatus" aria-live="polite"></p>
+
+  <section class="warn" aria-label="Holding has a cost">
+    <h2>Holding has a cost.</h2>
+    <p>ALTAR is not a coin you hold and forget. If you hold it and do not offer for 7 days, the altar takes 1% of your coins per quiet day as tithe, into its share, which feeds the Feast. Offer once and the clock resets. The Oracle and the altar itself never pay tithe. Full detail on the <a href="ritual.html">Ritual</a> page.</p>
+  </section>
 
   <section aria-label="The Offering">
     <h2>The Offering</h2>
@@ -55,6 +60,7 @@
     <div class="offer-box">
       <button class="claim" id="claimBtn" type="button" disabled>Claim 100 test ALTAR</button>
       <p class="hint" id="claimNote">Connect your wallet to claim 100 free test ALTAR, once per wallet.</p>
+      <p class="hint">Claiming means holding. Holders who do not offer for 7 days pay 1% per quiet day as tithe.</p>
       <label for="offerAmount">Amount in ALTAR</label>
       <input id="offerAmount" type="text" inputmode="decimal" autocomplete="off">
       <p class="hint">Your balance: <span id="myBalance">&mdash;</span> ALTAR</p>
@@ -93,7 +99,7 @@
 </main>
 <footer>
   <p>ALTAR is a memecoin on NEAR testnet. No real funds.</p>
-  <p class="contract">Contract <span id="contractId">altar.testnet</span></p>
+  <p class="contract">Contract <span id="contractId">altar-ritual-v5.testnet</span></p>
   <p><a href="https://github.com/Otoyo4real/altar">Otoyo4real/altar on GitHub</a></p>
 </footer>
 <script src="app.js"></script>

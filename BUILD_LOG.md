@@ -1,17 +1,17 @@
 # $ALTAR — Build Log
 
-Local build only. Nothing deployed, pushed, or submitted.
+**Current state (2026-11-11, v5): deployed on testnet, pushed to GitHub, proofs complete, not yet submitted.** Production `altar-ritual-v5.testnet` and demo `altar-ritual-v5-demo.testnet` are live; `cargo test` 86 passed, 0 failed; wasm 255,368 bytes (SHA-256 21f689c5b404316684ed1b8950c1720c27cf3dc72974873b480cd5cc1368e7a1). All four v5 proof phases are done on the demo only — claim, FAIL, PASS with each offerer claiming exactly 998, Feast paying 5,299.925 with each window wallet claiming 883.320837007792991577, Oracle NEAR AI round correct with onchain path/model/proof (chat abf2e6a4de7548abb95ee9a6d930d509), quiet tithe swept exactly 1, 0.99, 0, 400, 192. Pushed to GitHub Otoyo4real/altar (head b4d7f26a); the site is live at https://altar-rouge.vercel.app/. Not yet done: the demo video, the X post, Isaiah's Vercel redeploy of the latest changes, and the hackathon submission (lead Joseph must confirm). The sections below are the log in order — v1 to v5 — so early entries describe the state at the time they were written, not the state now.
 
 ## What was built
 
-- **Contract** — `contract/`, Rust with near-sdk, NEP-141. Single file `src/lib.rs` plus `Cargo.toml` and a contract README. Built with `cargo near build non-reproducible-wasm`. Wasm: `contract/target/near/altar.wasm`, 215,053 bytes. ABI: `contract/target/near/altar_abi.json` (22 functions: full NEP-141 set plus `new`, `offer`, `answer`, `get_params`, `get_offering`, `get_round`, `get_round_history`, `get_streak`, `get_altar_share`, `get_reputation`).
+- **Contract** — `contract/`, Rust with near-sdk, NEP-141. Single file `src/lib.rs` plus `Cargo.toml` and a contract README. Built with `cargo near build non-reproducible-wasm`. Current wasm (v5): `contract/target/near/altar.wasm`, 255,368 bytes, SHA-256 21f689c5b404316684ed1b8950c1720c27cf3dc72974873b480cd5cc1368e7a1. Full NEP-141 set plus `new`, `offer`, `answer`, `answer_round`, `claim`, `claim_reward`, `claim_feast`, `sweep_quiet`, `oracle_predict`, and the views (`get_params`, `get_offering`, `get_round`, `get_round_history`, `get_streak`, `get_altar_share`, `get_reputation`, `get_quiet`, `get_oracle`, `get_claimable_reward`, `get_claimable_feast`, `get_feast`).
 - **Simulation** — `scripts/simulate.mjs` (run with `node simulate.mjs`, exit 0) and `scripts/simulation-results.md`. Five scenarios: A always pass, B alternate pass/fail, C always fail, D whale under the 0.05% cap, E whale split into 40 fresh wallets under the reputation rule.
-- **Site** — `site/`, static HTML/CSS/JS, no build step. One ceremony, one scroll: the line, the rule, the whale cap sentence, the Offering bowl, offerer count, offer input with reputation cap, countdown with a Call the Answer button, streak, the Altar's share with days to Feast, the Last Offering, round history. @fastnear/wallet 2.5.0 bundle copied locally. `config.js` holds a placeholder `CONTRACT_ID: "altar.testnet"` to be replaced at deploy time. Verified in the headless Chromium shell with a fresh screenshot at `site/verify-screenshot.png`; no JS errors; calm "not live yet" state while the contract is undeployed.
+- **Site** — `site/`, static HTML/CSS/JS, no build step. Four live pages with one shared header (Altar, Oracle, Ritual, Rounds) plus a separate demo page: the line, the rule, the whale cap sentence, the Offering bowl, offerer count, offer input with reputation cap, countdown with a Call the Answer button, streak, the Altar's share with days to Feast, the Last Offering, round history with every mint and burn, a "Your rewards" section with per-round Claim buttons, and a "Holding has a cost" panel on the Altar and demo pages so the quiet tithe is visible before anyone claims or holds. @fastnear/wallet 2.5.0 bundle copied locally. `config.js` points at the v5 contracts (`altar-ritual-v5.testnet`, `altar-ritual-v5-demo.testnet`). Live at https://altar-rouge.vercel.app/.
 - **README** — `README.md`, leading with the line and the rule, then parameters, the worked example, the judge path, simulation results, and honest limits.
 
 ## Test results
 
-- `cargo test`: **39 passed, 0 failed** (verified by the coordinator with an independent run). Coverage includes: offer min/max/once per round, pass and fail paths, both gates, streak multipliers at 3 and 7, Feast at streak 7 and 14 with treasury exactly 0 after, Last Offering on pass and fail, the whale supply cap, 39 wallets at cap cannot pass while 40 can, the corrected worked example (supply 1,031,250), reputation factor at 0, 1/7, and full, first round reset on full sale but not on partial sale, and `get_reputation` values. Near sandbox integration tests cannot run here (file descriptor limit 4096, sandbox needs 65535).
+- `cargo test`: **86 passed, 0 failed** (46 ritual and faucet tests, 12 Oracle tests, 11 quiet tithe tests, 17 v5 tests: Oracle identity, one-round answer, answer batch cap, reward and Feast claims). Coverage includes: offer min/max/once per round, pass and fail paths, both gates, streak multipliers at 3 and 7, Feast at streak 7 and 14 with treasury exactly 0 after, Last Offering on pass and fail, the whale supply cap, 39 wallets at cap cannot pass while 40 can, the corrected worked example (supply 1,031,250), reputation factor at 0, 1/7, and full, first round reset on full sale but not on partial sale, and `get_reputation` values. Near sandbox integration tests cannot run here (file descriptor limit 4096, sandbox needs 65535).
 
 ## Simulation results (60 days, from 1,000,000)
 
@@ -41,11 +41,10 @@ Local build only. Nothing deployed, pushed, or submitted.
 
 ## Not done
 
-- No testnet deployment (needs a contract account and the init call).
-- No GitHub push (no repo exists yet; the repo will be supplied).
-- No demo video, no X post, no hackathon submission.
+- No demo video, no X post, no hackathon submission (lead Joseph must confirm).
 - No principal return, by design.
-- Live end to end verification against a deployed contract is still pending for the site (reputation values, a real offer, a real Answer) and for the contract (scripted pass, fail, and Feast rounds with 5 to 10 wallets).
+- The latest local changes (history badges and colours, fallback cleanup, Sybil wording, tithe visibility panels, README economics) are not yet pushed: the browser walkthrough that verifies them is in progress, and the push waits for it. Isaiah's Vercel redeploy follows the push.
+- Live end to end verification of the v5 site against the deployed contracts is done for the v5 set (headless 34/34 plus the four live proof phases on the demo); the walkthrough of the latest changes is still running.
 
 ## Deployment (2026-11-11, testnet, by Everest)
 
@@ -356,3 +355,13 @@ Correction to the NEAR AI swap. The first NEAR AI prediction (round 2990652) use
 - **Two script bugs found and fixed (contract right both times):** (1) the Feast script's expected total used 2.5% instead of the 25% treasury share — the contract's 5,299.925 is exactly prior treasury + 0.25 x offered; (2) the dormant script's polling patch recursed (`awaitQuiet` calling itself, stack overflow) and its post-offer check expected `quiet_rounds` 0 in R+5 when it is 1 (taxable 0, would_deduct 0 — the clock did reset). Resumed with finish/resume scripts; no dormant txs had landed before the fix.
 - **Final demo state (~18:50 UTC):** supply 1,040,254.12212578054769679, treasury 2,073.99, `total_claimed` 300, `quiet_total_collected` 593.99; Oracle correct 2, wrong 0, balance 5,020.
 - **Ready to push.** The v5 set (contract, site, oracle.mjs, README, BUILD_LOG, proof scripts + logs) goes up next; Isaiah redeploys Vercel after; then the ALTAR demo video.
+
+## Tithe wording for static holders (2026-11-11 ~20:10 WAT, Isaiah)
+
+- **Isaiah:** "I want you to use the word tithe in the repo and website for stastic holders." The word was already in the README and the Ritual page, but the lines a static holder actually reads said only "quiet" — the offer-box line ("Quiet for 5 rounds. The next sweep would take 400 ALTAR.") and the do-X-see-Y steps ("400 taken", "192").
+- **Fix.** Site: the offer box now says "Still inside the grace, no tithe is due" and "The next sweep would take 400 ALTAR as tithe"; the Ritual/demo sections now say "If you stay still and do not offer for seven days, it takes 1% of your coins as tithe…". README: the mechanic, worked example, judge path and do-X-see-Y steps now name the charge as tithe throughout ("400 taken as tithe", "192 as tithe", "no tithe is due", "The Oracle never pays tithe") and call the holders static. Headless verify 10/10 (`/tmp/og-test/verify-tithe.cjs`, stubbed RPC + stubbed wallet). Pushed, head 55fdde7f, verified live.
+
+## Offer-box cap notice (2026-11-11 ~20:15 WAT, Isaiah's screenshot)
+
+- **Isaiah:** a new wallet holds 100 after claiming, but the first offer caps at 10 — typing 100 fails, and a person who never read the cap lines above the button would not know. Asked for a notification below Offer saying they start with 10.
+- **Fix.** A line under the Offer button on `index.html` and `demo.html` (`#offerCapNote`): before connect it reads "New wallets start at 10 ALTAR per offer. Your cap grows as you hold."; once connected it shows the live cap — "You can offer at most 10 ALTAR this round. New wallets start at 10 — your cap grows as you hold." It is filled by `renderOfferCapNote()`, called from `updateCapDisplay()`. One real bug found by the headless check: the first version called the note at the end of `updateCapDisplay()`, but that function returns early when the reputation cap governs — so the note froze at the balance cap (5) while "Most you may offer" showed 10. Moved the call to the top of the function. Headless verify 12/12 (`/tmp/og-test/verify-tithe.cjs`, fresh-wallet stub: balance 100, cap 10, held 0 of 7). Pushed, head b4d7f26a, verified live. Shows on the site after Isaiah's Vercel redeploy.

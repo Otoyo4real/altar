@@ -4,7 +4,7 @@
 // layout stay visible and every live number stays a dash.
 (function () {
   "use strict";
-  var CFG = window.ALTAR_CONFIG || { CONTRACT_ID: "altar.testnet", NETWORK: "testnet" };
+  var CFG = window.ALTAR_CONFIG || { CONTRACT_ID: "altar-ritual-v5.testnet", DEMO_CONTRACT_ID: "altar-ritual-v5-demo.testnet", NETWORK: "testnet" };
   // Demo is a separate page (demo.html) that reads the live test
   // contract instead of the production altar, so the proven FAIL,
   // PASS and Feast rounds show there. The old ?demo=1 address still
@@ -637,14 +637,27 @@
     }
     var html = "";
     rows.forEach(function (r) {
-      html += "<tr><td>" + escapeHtml(String(r.round_id != null ? r.round_id : DASH)) + "</td>" +
-        "<td>" + escapeHtml(String(r.status || DASH)) + "</td>" +
+      var passed = r.status === "Passed";
+      var feast = false;
+      try { feast = BigInt(String(r.feast_paid || "0")) > 0n; } catch (_) { feast = false; }
+      // One amount cell: the kind of result gets its own colour, and a
+      // zero is dimmed so a real amount stands out at a glance.
+      function amtCell(value, kind) {
+        var zero = true;
+        try { zero = BigInt(String(value || "0")) === 0n; } catch (_) { zero = true; }
+        return "<td class=\"num " + (zero ? "zero" : kind) + "\">" + escapeHtml(formatAmount(value || "0")) + "</td>";
+      }
+      var outcome = passed
+        ? "<span class=\"badge pass\">Passed</span>" + (feast ? "<span class=\"badge feast-tag\">Feast</span>" : "")
+        : "<span class=\"badge fail\">Failed</span>";
+      html += "<tr class=\"" + (passed ? "row-pass" : "row-fail") + "\"><td>" + escapeHtml(String(r.round_id != null ? r.round_id : DASH)) + "</td>" +
+        "<td>" + outcome + "</td>" +
         "<td class=\"num\">" + escapeHtml(formatAmount(r.total_offered || "0")) + "</td>" +
         "<td class=\"num\">" + escapeHtml(String(r.offerer_count != null ? r.offerer_count : DASH)) + "</td>" +
-        "<td class=\"num\">" + escapeHtml(formatAmount(r.minted || "0")) + "</td>" +
-        "<td class=\"num\">" + escapeHtml(formatAmount(r.burned || "0")) + "</td>" +
-        "<td class=\"num\">" + escapeHtml(formatAmount(r.feast_paid || "0")) + "</td>" +
-        "<td class=\"num\">" + escapeHtml(formatAmount(r.oracle_burned || "0")) + "</td>" +
+        amtCell(r.minted || "0", "mint") +
+        amtCell(r.burned || "0", "burn") +
+        amtCell(r.feast_paid || "0", "feast-amt") +
+        amtCell(r.oracle_burned || "0", "oracle-burn") +
         "<td><span class=\"acct\">" + escapeHtml(r.last_offerer ? String(r.last_offerer) : "No offering yet") + "</span></td></tr>";
     });
     body.innerHTML = html;
