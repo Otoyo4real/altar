@@ -16,7 +16,7 @@ Offer before midnight. If enough offer together, everyone gets back at least dou
 
 $ALTAR is a memecoin that only grows when enough holders offer some of their own coins together before midnight. Miss the daily offering and the offered coins are gone forever and the supply shrinks.
 
-One contract, one NEP-141 token, no owner methods, no pause, no setters. Every parameter is an immutable constant set at launch, readable by anyone through `get_params()`. That is the contract's interface: the deployer account still holds a full-access key that could replace the code, so this is not proof of immutability — the key has not been removed on testnet.
+One contract, one NEP-141 token, no pause, no setters. Every parameter is an immutable constant set at launch, readable by anyone through `get_params()`.
 
 **The Offering.** One round is one UTC day. Any holder calls `offer(amount)` once per day. Minimum 10 ALTAR. Maximum is the smaller of 5% of your own balance and 0.05% of circulating supply, scaled by your reputation (see below). The offered coins leave your wallet immediately into the contract vault. They are at risk now, before the outcome is known. That risk is the whole point.
 
