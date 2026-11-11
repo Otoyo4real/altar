@@ -4,7 +4,7 @@
 
 Humans must sacrifice together. The machine must predict. The altar decides.
 
-ALTAR is a daily offering ritual. The community offers together before midnight. The Oracle, a NEAR AI agent, bets its own coins on whether the offering will pass. The humans decide if it wins or loses.
+ALTAR is a daily offering ritual. The community offers together before midnight. The Oracle, a NEAR AI agent, bets its own coins on whether the offering will pass. The Altar decides if it wins or loses.
 
 ## The Offering
 
