@@ -5,10 +5,14 @@
 (function () {
   "use strict";
   var CFG = window.ALTAR_CONFIG || { CONTRACT_ID: "altar.testnet", NETWORK: "testnet" };
-  // Demo mode (?demo=1) reads the live test contract instead of the
-  // production altar, so the proven FAIL, PASS and Feast rounds show here.
-  var DEMO_MODE = false;
-  try { DEMO_MODE = new URLSearchParams(window.location.search).get("demo") === "1"; } catch (_) { DEMO_MODE = false; }
+  // Demo is a separate page (demo.html) that reads the live test
+  // contract instead of the production altar, so the proven FAIL,
+  // PASS and Feast rounds show there. The old ?demo=1 address still
+  // works as a fallback, but no link uses it.
+  // Demo is a separate page (demo.html), which sets window.ALTAR_DEMO_PAGE.
+  // The old ?demo=1 address still works as a fallback, but no link uses it.
+  var DEMO_MODE = window.ALTAR_DEMO_PAGE === true;
+  try { DEMO_MODE = DEMO_MODE || new URLSearchParams(window.location.search).get("demo") === "1"; } catch (_) { /* keep the page flag */ }
   var CONTRACT_ID = (DEMO_MODE && CFG.DEMO_CONTRACT_ID) ? CFG.DEMO_CONTRACT_ID : CFG.CONTRACT_ID;
   var NETWORK = CFG.NETWORK || "testnet";
   var RPCS = window.RPC_ENDPOINTS || ["https://rpc.testnet.near.org"];
@@ -518,7 +522,7 @@
       if (DEMO_MODE) {
         body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet on the demo altar.</td></tr>";
       } else {
-        body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet on the live altar. Nobody has offered here yet. The FAIL, the PASS and the Feast Day rounds are on the demo altar. <a href=\"rounds.html?demo=1\">See the demo rounds</a></td></tr>";
+        body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet on the live altar. Nobody has offered here yet. The FAIL, the PASS and the Feast Day rounds are on the demo altar. <a href=\"demo.html#rounds\">See the demo rounds</a></td></tr>";
       }
       return;
     }
@@ -707,39 +711,26 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     setText("contractId", CONTRACT_ID);
-    var demoBanner = el("demoBanner");
-    if (demoBanner) demoBanner.hidden = !DEMO_MODE;
-    // The header pill shows the mode you are ON, not where the link
-    // goes: filled gold LIVE on production, outlined DEMO on the demo
-    // contract. Tapping it switches modes. The static HTML already
-    // says LIVE with a plain "?demo=1" link, so production to demo
-    // works even if this script is stale or fails.
+    // The header pill shows the mode you are ON: filled gold LIVE on
+    // the live pages, outlined DEMO on the demo page. Tapping it
+    // switches pages (live pages link to demo.html, the demo page
+    // links back to index.html), so no script is needed for the switch.
     var headerDemo = el("headerDemoLink");
     if (headerDemo) {
       if (DEMO_MODE) {
         headerDemo.textContent = "Demo";
-        var page = window.location.pathname.split("/").pop() || "index.html";
-        headerDemo.setAttribute("href", page);
-        headerDemo.setAttribute("title", "Switch to the live altar");
+        headerDemo.setAttribute("title", "Back to the live altar");
         headerDemo.classList.remove("live");
         headerDemo.classList.add("demo");
+        var page = window.location.pathname.split("/").pop() || "index.html";
+        if (page === "demo.html") headerDemo.setAttribute("href", "index.html");
+        else headerDemo.setAttribute("href", page);
       } else {
         headerDemo.textContent = "Live";
         headerDemo.setAttribute("title", "Switch to the demo altar");
         headerDemo.classList.remove("demo");
         headerDemo.classList.add("live");
       }
-    }
-    if (DEMO_MODE) {
-      var navLinks = document.querySelectorAll("a[data-page]");
-      for (var i = 0; i < navLinks.length; i++) {
-        var href = navLinks[i].getAttribute("href");
-        if (href && href.indexOf("?demo=1") === -1 && href.indexOf("://") === -1) {
-          navLinks[i].setAttribute("href", href + "?demo=1");
-        }
-      }
-      var cdHeading = document.querySelector('section[aria-label="Until midnight"] h2');
-      if (cdHeading) cdHeading.textContent = "Until the round ends";
     }
     renderWhaleRule();
     renderWhaleSection();
