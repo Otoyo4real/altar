@@ -299,12 +299,12 @@
     try { taxable = Number(quietNow.taxable_rounds) || 0; } catch (_) { taxable = 0; }
     if (quiet === 0) { n.textContent = "You offered in this round. The quiet tithe does not apply."; return; }
     if (taxable === 0) {
-      n.textContent = "Quiet for " + quiet + " " + quietUnit(quiet) + ". Still inside the grace, nothing is due.";
+      n.textContent = "Quiet for " + quiet + " " + quietUnit(quiet) + ". Still inside the grace, no tithe is due.";
       return;
     }
     var due = DASH;
     try { due = formatAmount(quietNow.would_deduct || "0"); } catch (_) { due = DASH; }
-    n.textContent = "Quiet for " + quiet + " " + quietUnit(quiet) + ". The next sweep would take " + due + " ALTAR.";
+    n.textContent = "Quiet for " + quiet + " " + quietUnit(quiet) + ". The next sweep would take " + due + " ALTAR as tithe.";
   }
   async function refreshQuiet() {
     if (!walletAccountId) { quietNow = null; renderQuietLine(); return; }

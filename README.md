@@ -27,7 +27,7 @@ One contract, one NEP-141 token, no owner, no pause, no setters. Every parameter
 
 **Reputation.** Every wallet carries a first round, the round it first received ALTAR. Your reputation factor is the rounds you have held divided by 7, capped at 1. A brand new wallet can offer exactly the 10 minimum and no more. After a week of holding you offer at the full 0.05% cap. Sell everything and your reputation resets to zero. Partial sales do not reset it. The site shows your cap and your rounds held. The demo instance uses 1 reputation round, so demo wallets reach full reputation after one round.
 
-**The quiet tithe.** The altar asks every day. If a wallet does not offer for 7 rounds, it starts paying 1% of its balance for each further quiet round, into the Altar's share — so quiet holders feed the Feast for those who offer. Anyone may call `sweep_quiet(account)` to collect what is due; the sweep takes only the rounds since the last sweep (or the last offer), never more than half a wallet's balance in one call, and nothing at all from the Oracle or the altar itself. Offering again resets the quiet clock. The demo uses 1 quiet-grace round, so the tithe is visible within minutes there. The site shows the rule on the Ritual page and your own quiet position (rounds quiet, what the next sweep would take) in the offer box once your wallet is connected. `get_quiet(account)` serves the same numbers, and `get_params()` serves the grace, the rate, and the total ever collected.
+**The quiet tithe.** The altar asks every day. If a wallet stays still and does not offer for 7 rounds, it starts paying 1% of its balance as tithe for each further quiet round, into the Altar's share — so static holders feed the Feast for those who offer. Anyone may call `sweep_quiet(account)` to collect what is due; the sweep takes only the rounds since the last sweep (or the last offer), never more than half a wallet's balance in one call, and nothing at all from the Oracle or the altar itself. Offering again resets the quiet clock. The demo uses 1 quiet-grace round, so the tithe is visible within minutes there. The site shows the rule on the Ritual page and your own quiet position (rounds quiet, what the next sweep would take) in the offer box once your wallet is connected. `get_quiet(account)` serves the same numbers, and `get_params()` serves the grace, the rate, and the total ever collected.
 
 **Claim (testnet faucet).** Any wallet calls `claim()` once and receives exactly 100 test ALTAR, minted in the same call — the claim registers the wallet on the token, so a brand-new wallet can claim and immediately offer. The faucet stops at 100,000 ALTAR total (1,000 claims). A fresh wallet's offer cap is floored at the 10 minimum, so 100 is enough to offer 10 a round and grow through passes. The site shows a "Claim 100 test ALTAR" button when your wallet is connected and disables it, with a clear note, once you have claimed. The faucet mints new supply, separate from the ritual mint; the 60-day simulation models the ritual only.
 
@@ -67,7 +67,7 @@ Next day only 12,000 is offered by 18 holders, so the round fails. The 12,000 is
 
 Seven straight passes bring Feast Day: the Altar's share pays out in full to that week's offerers.
 
-The quiet tithe: a wallet holding 10,000 that does not offer for 11 days pays 1% a day for the 4 days past the 7 day grace, 400 ALTAR into the Altar's share. Offer again and the count starts over.
+The quiet tithe: a wallet holding 10,000 that stays still and does not offer for 11 days pays 1% a day as tithe for the 4 days past the 7 day grace, 400 ALTAR into the Altar's share. Offer again and the count starts over.
 
 Note: an earlier draft of this example quoted a pass supply of 1,056,250. That added the full mint without subtracting the consumed offering. The correct figure is 1,031,250, and the contract tests pin it.
 
@@ -77,7 +77,7 @@ Note: an earlier draft of this example quoted a pass supply of 1,056,250. That a
 2. Connect a wallet and claim 100 free test ALTAR with the claim button. No tokens to buy, no transfer to arrange.
 3. Offer some ALTAR and watch your balance move into the vault and your cap shown.
 4. Read the Oracle's prediction for this round and its record. It stakes 100 of its own ALTAR on the outcome and loses it when it is wrong.
-5. Read the quiet tithe on the Ritual page: if you do not offer for 7 days, 1% of your coins per quiet day goes to the Altar's share. The offer box shows your own quiet position once your wallet is connected.
+5. Read the quiet tithe on the Ritual page: if you stay still and do not offer for 7 days, 1% of your coins per quiet day goes to the Altar's share as tithe. The offer box shows your own quiet position once your wallet is connected.
 6. Call the Answer after midnight and watch the outcome: on a pass, offerers receive double and the supply number rises; on a fail, the offered coins are gone and the supply falls.
 7. Call `get_params()` to prove every threshold, cap, and multiplier is fixed and public.
 8. Read the Known Limits below.
@@ -87,11 +87,11 @@ Note: an earlier draft of this example quoted a pass supply of 1,056,250. That a
 All of this runs on the demo altar (`demo.html`, 10 minute rounds, 1 quiet-grace round), so every step below finishes in minutes. The numbers are the demo numbers; production uses a 7 day grace and daily rounds.
 
 1. **Do:** claim 100 ALTAR as a fresh wallet. **See:** 100 in your balance, and `get_quiet(your wallet)` shows last_offer_round this round, quiet_rounds 0, would_deduct 0.
-2. **Do:** nothing for two rounds, then call `sweep_quiet(your wallet)`. **See:** 1 ALTAR leaves your wallet and the Altar's share rises by exactly 1 (1% of 100 for the one round past the 1 round grace). Your balance is 99.
+2. **Do:** nothing for two rounds, then call `sweep_quiet(your wallet)`. **See:** 1 ALTAR leaves your wallet as tithe and the Altar's share rises by exactly 1 (1% of 100 for the one round past the 1 round grace). Your balance is 99.
 3. **Do:** wait one more round and sweep again. **See:** 0.99 ALTAR taken (1% of 99). Your balance is 98.01.
-4. **Do:** offer 10 in the next round. **See:** the 10 leaves your wallet and your quiet clock resets — `get_quiet` shows quiet_rounds 0 again. Sweep now and see 0. (The round fails unless others offer, so the 10 is burned; your balance is 88.01.)
-5. **Do:** call `sweep_quiet(altar-oracle.testnet)`. **See:** 0 taken, and the Oracle's balance unchanged. The Oracle is never charged.
-6. **Do:** fund a wallet with 10,000, wait five rounds without offering, then sweep it. **See:** 400 taken (4 rounds past grace at 1% of 10,000). Sweep again two rounds later and see 192 (2 rounds at 1% of 9,600). The Altar's share rises by exactly those amounts, and `get_params()` quiet_total_collected grows by the same total.
+4. **Do:** offer 10 in the next round. **See:** the 10 leaves your wallet and your quiet clock resets — `get_quiet` shows quiet_rounds 0 again. Sweep now and see 0 — no tithe is due. (The round fails unless others offer, so the 10 is burned; your balance is 88.01.)
+5. **Do:** call `sweep_quiet(altar-oracle.testnet)`. **See:** 0 taken, and the Oracle's balance unchanged. The Oracle never pays tithe.
+6. **Do:** fund a wallet with 10,000, wait five rounds without offering, then sweep it. **See:** 400 taken as tithe (4 rounds past grace at 1% of 10,000). Sweep again two rounds later and see 192 as tithe (2 rounds at 1% of 9,600). The Altar's share rises by exactly those amounts, and `get_params()` quiet_total_collected grows by the same total.
 
 The live proofs for every step above are in `scripts/dormant-proof-v5-log.md` (v5 proofs done 2026-11-11; the v4 log proved the same numbers on the abandoned v4 demo).
 
