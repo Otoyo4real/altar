@@ -188,6 +188,10 @@
   function updateCapDisplay() {
     var cap = capUnits();
     setText("myCap", cap === null ? DASH : formatAmount(cap.toString()));
+    // The notice under Offer must update on every cap refresh, not
+    // only on the balance path below: when the reputation cap governs,
+    // this function returns early, so the note is rendered up here.
+    renderOfferCapNote();
     var note = el("myCapNote");
     if (!note) return;
     if (cap === null) { note.textContent = ""; return; }
@@ -201,6 +205,19 @@
     } else {
       note.textContent = ", 5% of your balance";
     }
+  }
+  // The notice under the Offer button: a person who never read the
+  // cap lines above still sees, right where they tap, what they can
+  // offer. New wallets start at 10 ALTAR.
+  function renderOfferCapNote() {
+    var n = el("offerCapNote");
+    if (!n) return;
+    var cap = capUnits();
+    if (cap === null) {
+      n.textContent = "New wallets start at 10 ALTAR per offer. Your cap grows as you hold.";
+      return;
+    }
+    n.textContent = "You can offer at most " + formatAmount(cap.toString()) + " ALTAR this round. New wallets start at 10 — your cap grows as you hold.";
   }
   // Rounds a wallet must hold to reach the full cap, from
   // get_params().reputation_rounds. Production 7, demo 1.
@@ -443,6 +460,7 @@
     setText("myBalance", DASH);
     setText("myCap", DASH);
     setText("myCapNote", "");
+    renderOfferCapNote();
     refreshWalletBtn();
     pageStatus("Signed out.");
   }
