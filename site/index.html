@@ -16,18 +16,30 @@
 </header>
 <main>
   <div class="hero">
-    <h1>The altar only answers when the offering is enough.</h1>
+    <h1>Humans against the machine.</h1>
   </div>
-  <p class="rule">Offer before midnight. If enough offer together, everyone gets back double. If not, everything offered is gone.</p>
-  <p class="rule" id="whaleRule">No one wallet can offer more than 0.05% of supply. The altar needs a crowd of at least forty.</p>
+  <p class="rule">The community decides. The machine has to guess.</p>
+  <p class="rule">ALTAR is a daily offering ritual. The community offers together before midnight. The Oracle, a NEAR AI agent, bets its own coins on whether the offering will pass. The humans decide if it wins or loses.</p>
   <p class="demo-link"><a id="demoToggle" href="?demo=1">See the live demo test</a></p>
   <p class="notice demo" id="demoNotice" hidden>Demo. This is the live test altar: 10 minute rounds, 5 offerers to pass. The FAIL, the PASS and the Feast Day rounds are already on chain here.</p>
 
   <p class="notice" id="notLive">The altar is not live yet. The offering opens when the contract is deployed.</p>
   <p id="pageStatus" aria-live="polite"></p>
 
+  <section aria-label="The Oracle">
+    <h2>The Oracle</h2>
+    <p class="protect">The Oracle is <span class="num" id="oracleAccount">&mdash;</span>, a NEAR AI agent. It runs on NEAR AI, model z-ai/glm-5.3-flash. If NEAR AI cannot be reached, a plain rule decides instead.</p>
+    <p class="protect">This round it says <span class="num" id="oraclePrediction">&mdash;</span> and staked <span class="num" id="oracleStake">&mdash;</span> ALTAR.</p>
+    <p class="protect" id="oracleReason">&mdash;</p>
+    <p class="protect">If it is right, it gets its 100 ALTAR back plus 10. If it is wrong, its 100 ALTAR is burned. It cannot change the outcome. It cannot mint coins. It cannot touch the treasury.</p>
+    <p class="protect">So far: <span class="num" id="oracleCorrect">&mdash;</span> right, <span class="num" id="oracleWrong">&mdash;</span> wrong, <span class="num" id="oracleTotalStaked">&mdash;</span> ALTAR staked in all.</p>
+  </section>
+
   <section aria-label="The Offering">
     <h2>The Offering</h2>
+    <p class="rule">The altar only answers when the offering is enough.</p>
+    <p class="rule">Offer before midnight. If enough offer together, everyone gets back double. If not, everything offered is gone.</p>
+    <p class="rule" id="whaleRule">No one wallet can offer more than 0.05% of supply. The altar needs a crowd of at least forty.</p>
     <p class="big"><span id="offeredValue">&mdash;</span> <span class="unit">ALTAR</span></p>
     <p class="sub">Offered in this round</p>
     <div class="bowl">
@@ -68,17 +80,6 @@
     <p class="protect"><b>The crowd.</b> The round needs at least <span id="whaleMinOfferers">forty</span> distinct offerers. One wallet counts as one, however big it is.</p>
     <p class="protect"><b>Once per round.</b> Each wallet can offer only once per round. There is no second offering.</p>
     <p class="protect"><b>The example.</b> A whale holds 40% of all ALTAR. In one round it can offer at most <span class="num" id="exWhaleCapPct">0.05%</span> of supply, which is <span class="num" id="exWhaleCap">&mdash;</span> ALTAR while the line is <span class="num" id="exLine">&mdash;</span> ALTAR. The line to pass is <span class="num" id="exLinePct">2%</span> of supply, so it would take <span class="num" id="exWallets">40</span> wallets offering at the cap to reach it. One whale counts as one.</p>
-  </section>
-
-  <section aria-label="Humans against the machine">
-    <h2>Humans against the machine</h2>
-    <p class="protect lead">The community decides. The machine has to guess.</p>
-    <p class="protect">The community makes the offering. The Oracle bets on whether it will pass. The humans decide if the Oracle wins or loses.</p>
-    <p class="protect">The Oracle is <span class="num" id="oracleAccount">&mdash;</span>, a NEAR AI agent. It runs on NEAR AI, model z-ai/glm-5.3-flash. If NEAR AI cannot be reached, a plain rule decides instead.</p>
-    <p class="protect">This round it says <span class="num" id="oraclePrediction">&mdash;</span> and staked <span class="num" id="oracleStake">&mdash;</span> ALTAR.</p>
-    <p class="protect" id="oracleReason">&mdash;</p>
-    <p class="protect">If it is right, it gets its 100 ALTAR back plus 10. If it is wrong, its 100 ALTAR is burned. It cannot change the outcome. It cannot mint coins. It cannot touch the treasury.</p>
-    <p class="protect">So far: <span class="num" id="oracleCorrect">&mdash;</span> right, <span class="num" id="oracleWrong">&mdash;</span> wrong, <span class="num" id="oracleTotalStaked">&mdash;</span> ALTAR staked in all.</p>
   </section>
 
   <section aria-label="Until midnight">

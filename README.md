@@ -1,16 +1,16 @@
 # $ALTAR — The Daily Offering
 
-## The altar only answers when the offering is enough.
+## Humans against the machine.
 
-Offer before midnight. If enough offer together, everyone gets back double. If not, everything offered is gone.
+The community decides. The machine has to guess.
 
-No one wallet can offer more than 0.05% of supply. The altar needs a crowd of at least forty.
-
-New wallets start small. Your offering cap grows with every round you hold, up to the full 0.05% after a week of holding. Sell everything and your reputation resets to zero.
-
-No ALTAR yet? Claim 100 free test ALTAR on the site, once per wallet. The faucet stops at 100,000 total.
+ALTAR is a daily offering ritual. The community offers together before midnight. The Oracle, a NEAR AI agent, bets its own coins on whether the offering will pass. The humans decide if it wins or loses.
 
 ## The Offering
+
+The altar only answers when the offering is enough.
+
+Offer before midnight. If enough offer together, everyone gets back double. If not, everything offered is gone.
 
 $ALTAR is a memecoin that only grows when enough holders offer some of their own coins together before midnight. Miss the daily offering and the offered coins are gone forever and the supply shrinks.
 
