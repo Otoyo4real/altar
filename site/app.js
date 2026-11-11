@@ -5,7 +5,11 @@
 (function () {
   "use strict";
   var CFG = window.ALTAR_CONFIG || { CONTRACT_ID: "altar.testnet", NETWORK: "testnet" };
-  var CONTRACT_ID = CFG.CONTRACT_ID;
+  // Demo mode (?demo=1) reads the live test contract instead of the
+  // production altar, so the proven FAIL, PASS and Feast rounds show here.
+  var DEMO_MODE = false;
+  try { DEMO_MODE = new URLSearchParams(window.location.search).get("demo") === "1"; } catch (_) { DEMO_MODE = false; }
+  var CONTRACT_ID = (DEMO_MODE && CFG.DEMO_CONTRACT_ID) ? CFG.DEMO_CONTRACT_ID : CFG.CONTRACT_ID;
   var NETWORK = CFG.NETWORK || "testnet";
   var RPCS = window.RPC_ENDPOINTS || ["https://rpc.testnet.near.org"];
   var GAS_100 = window.GAS_100 || "100000000000000";
@@ -508,6 +512,22 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     setText("contractId", CONTRACT_ID);
+    var toggle = el("demoToggle");
+    if (toggle) {
+      if (DEMO_MODE) {
+        toggle.textContent = "Back to the live altar";
+        toggle.setAttribute("href", window.location.pathname);
+      } else {
+        toggle.textContent = "See the live demo test";
+        toggle.setAttribute("href", "?demo=1");
+      }
+    }
+    var demoNotice = el("demoNotice");
+    if (demoNotice) demoNotice.hidden = !DEMO_MODE;
+    if (DEMO_MODE) {
+      var cdHeading = document.querySelector('section[aria-label="Until midnight"] h2');
+      if (cdHeading) cdHeading.textContent = "Until the round ends";
+    }
     renderWhaleRule();
     renderReputation();
     var connectBtn = el("connectBtn");

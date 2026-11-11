@@ -94,6 +94,16 @@ main {
   font-size: 16px;
 }
 .notice.show { display: block; }
+.demo-link {
+  text-align: center;
+  margin: 22px 0 0;
+}
+.demo-link a {
+  color: var(--gold);
+  font-size: 16px;
+}
+.notice.demo { display: block; }
+.notice.demo[hidden] { display: none; }
 #pageStatus {
   text-align: center;
   color: var(--muted);

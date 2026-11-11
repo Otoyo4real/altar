@@ -5,6 +5,7 @@
 // altar-offering.testnet deployment is abandoned (buggy answer()).
 window.ALTAR_CONFIG = {
   CONTRACT_ID: "altar-ritual.testnet",
+  DEMO_CONTRACT_ID: "altar-ritual-demo.testnet",
   NETWORK: "testnet"
 };
 window.RPC_ENDPOINTS = [
