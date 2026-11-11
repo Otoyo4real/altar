@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALTAR, The Daily Offering</title>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="fastnear-wallet.bundle.js"></script>
+</head>
+<body>
+<header class="top">
+  <span class="brand">ALTAR</span>
+  <span class="net">Testnet</span>
+  <button id="connectBtn" type="button">Connect wallet</button>
+</header>
+<main>
+  <div class="hero">
+    <h1>The altar only answers when the offering is enough.</h1>
+  </div>
+  <p class="rule">Offer before midnight. If enough offer together, everyone gets back double. If not, everything offered is gone.</p>
+  <p class="rule" id="whaleRule">No one wallet can offer more than 0.05% of supply. The altar needs a crowd of at least forty.</p>
+
+  <p class="notice" id="notLive">The altar is not live yet. The offering opens when the contract is deployed.</p>
+  <p id="pageStatus" aria-live="polite"></p>
+
+  <section aria-label="The Offering">
+    <h2>The Offering</h2>
+    <p class="big"><span id="offeredValue">&mdash;</span> <span class="unit">ALTAR</span></p>
+    <p class="sub">Offered in this round</p>
+    <div class="bowl">
+      <div class="bowl-track"><div class="bowl-fill" id="bowlFill"></div></div>
+    </div>
+    <p class="pct" id="bowlPct">&mdash; of the line</p>
+    <div class="row"><span class="k">Line to pass</span><span class="v"><span id="thresholdValue">&mdash;</span> ALTAR</span></div>
+  </section>
+
+  <section aria-label="Offerers">
+    <h2>Offerers</h2>
+    <p class="big"><span id="offererCount">&mdash;</span> of <span id="offererNeed">&mdash;</span></p>
+    <p class="sub">Offerers have joined this round</p>
+  </section>
+
+  <section aria-label="Make your offering">
+    <h2>Make your offering</h2>
+    <div class="offer-box">
+      <label for="offerAmount">Amount in ALTAR</label>
+      <input id="offerAmount" type="text" inputmode="decimal" placeholder="100" autocomplete="off">
+      <p class="hint">Your balance: <span id="myBalance">&mdash;</span> ALTAR</p>
+      <p class="hint">Minimum 10 ALTAR</p>
+      <p class="hint">Most you may offer: <span id="myCap">&mdash;</span> ALTAR<span id="myCapNote"></span></p>
+      <p class="hint">Your cap: <span id="repCap">&mdash;</span> ALTAR &mdash; grows as you hold</p>
+      <p class="hint" id="repRounds">&mdash;</p>
+      <button class="offer" id="offerBtn" type="button">Offer</button>
+      <p class="hint">Offered coins leave your wallet at once. On a pass they return with a reward. On a fail they are gone.</p>
+    </div>
+  </section>
+
+  <section aria-label="Until midnight">
+    <h2>Until midnight</h2>
+    <p class="count" id="countdown">&mdash;</p>
+    <p class="sub">The Offering closes at midnight. Then anyone may call the Answer.</p>
+    <button class="answer" id="answerBtn" type="button" disabled>Call the Answer</button>
+  </section>
+
+  <section aria-label="The streak">
+    <h2>The streak</h2>
+    <p class="big"><span id="streakValue">&mdash;</span></p>
+    <p class="sub">The altar grows more generous the longer the offering continues.</p>
+    <p class="mult" id="multiplierLine">Return now: &mdash;</p>
+  </section>
+
+  <section aria-label="The Altar's share">
+    <h2>The Altar&rsquo;s share</h2>
+    <p class="big"><span id="treasuryValue">&mdash;</span> <span class="unit">ALTAR</span></p>
+    <p class="sub" id="feastLine">Feast Day in &mdash; days</p>
+    <p class="sub">On Feast Day the whole share is given to the offerers of the week, shared in proportion to what each offered.</p>
+  </section>
+
+  <section aria-label="The Last Offering">
+    <h2>The Last Offering</h2>
+    <p class="big" id="lastOfferer">No offering yet</p>
+  </section>
+
+  <section aria-label="Past rounds">
+    <h2>Past rounds</h2>
+    <table>
+      <thead>
+        <tr><th>Round</th><th>Outcome</th><th class="num">Offered</th><th class="num">Offerers</th><th>Last Offering</th></tr>
+      </thead>
+      <tbody id="historyBody">
+        <tr><td colspan="5" class="empty">No past rounds yet.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+<footer>
+  <p>ALTAR runs on NEAR testnet. No real funds.</p>
+  <p class="contract">Contract <span id="contractId">altar.testnet</span></p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

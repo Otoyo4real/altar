@@ -1,0 +1,62 @@
+# ALTAR live proof log
+
+Ran 2026-11-11T00:30:12.828Z on altar-ritual-demo.testnet (600s rounds).
+
+- wallet exists: altar-proof1.testnet
+- wallet exists: altar-proof2.testnet
+- wallet exists: altar-proof3.testnet
+- wallet exists: altar-proof4.testnet
+- wallet exists: altar-proof5.testnet
+- wallet exists: altar-proof6.testnet
+- storage_deposit altar-proof1.testnet: DGncgD2tt8vrJMWK1SJ2MVVSePk4cx1WxHAfvdTZ2EEu
+- ft_transfer 10,000 ALTAR -> altar-proof1.testnet: FPeTbdUUKc7HEBV2LCAFjSkN4TJWV7FhWaBg3QdpmjR9
+-   balance altar-proof1.testnet: 10000000000000000000000
+- storage_deposit altar-proof2.testnet: CP6V2uucyyNRhF9oMQiDh99HvyDmnssuukS3GoFHgQ2h
+- ft_transfer 10,000 ALTAR -> altar-proof2.testnet: 5ptmPq8mxYBRZVLnrpTHCNnVogjHTiLeAH3xvgG5NTmN
+-   balance altar-proof2.testnet: 10000000000000000000000
+- storage_deposit altar-proof3.testnet: Cedos25PLYsCpoeRPRkmYjosWkhRv7nP7MWeySzoKodY
+- ft_transfer 10,000 ALTAR -> altar-proof3.testnet: DHRfq9Hqt6rN2MpC8WPWdhywhshaqWK8VR1riDQjaVfd
+-   balance altar-proof3.testnet: 10000000000000000000000
+- storage_deposit altar-proof4.testnet: ARmCPkjXuF7hPsQHidJXuzu7mqj657hWmjaRHzrNcsSN
+- ft_transfer 10,000 ALTAR -> altar-proof4.testnet: GrMDCZNG4WTv9pSNrk6Rc4D74eFusjJqLB8Vx3YwaRfA
+-   balance altar-proof4.testnet: 10000000000000000000000
+- storage_deposit altar-proof5.testnet: 55XAcKWuaNCwr756WvKucM1Q3AduxcY32sWYMcfkCNCB
+- ft_transfer 10,000 ALTAR -> altar-proof5.testnet: 7eA89wsAT2eSWcXFqUp1QPp8A5U1iix37aiYXvnjPd8x
+-   balance altar-proof5.testnet: 10000000000000000000000
+- storage_deposit altar-proof6.testnet: 92Co8iCQZ2bEACia3dsQjPcfYGxTgF2VCXg5nDpAERm9
+- ft_transfer 10,000 ALTAR -> altar-proof6.testnet: 6fRj8btW46aEwtmvetbHAkqBwN92aD1ETDmZxrKLgz2d
+-   balance altar-proof6.testnet: 10000000000000000000000
+- current round 2990593, ends in 141s, threshold 2500000000000000000000
+- FAIL round will be 2990593 (141s left)
+- offer 10 altar-proof1.testnet: 9ci8s7M4UFwi1ZPTncmNDJLUXxQZFZuJX29f9ELbxHHV
+- offer 10 altar-proof2.testnet: DqaFGhnXdoqAnLMPwZXmV2SnwSSgHrTz9NzjruQfzd1c
+- offer 10 altar-proof3.testnet: BQtK2EKUin2KmXZfMdMaDpkvqUrFYnkEGUMJTLcZjBrp
+- offer 10 altar-proof4.testnet: 4uMRHwvY5mhL3V3vuRPFFoSgCJdRtsf8qWwPTpqcCU9Z
+- offer 10 altar-proof5.testnet: 4sZzzeHZpY6WkAVaBd4jNbeiZYkLE7YW1pfcWSN56jBR
+- offer 10 altar-proof6.testnet: 43RaHKeEUPLQAKKRqfwDubnCscY2YKc3j68sYE8yPyeN
+- round 2990593 after offers: total_offered=60000000000000000000 offerer_count=6 threshold=2500000000000000000000
+- round 2990593 ended; calling answer()
+- answer (fail) tx: 5jfvdrircRx9YRUM7W5pEBi1L1dc7YpXRYvAdoHaa5mg
+- round 2990593 record: {"round_id":2990593,"total_offered":"60000000000000000000","offerer_count":6,"status":"Failed","last_offerer":"altar-proof6.testnet","minted":"0","burned":"60000000000000000000","feast_paid":"0","streak_after":0}
+- supply after fail: 999940000000000000000000
+- streak after fail: 0
+- PASS round will be 2990594
+- offer 499 altar-proof1.testnet: E75b2vv7j3ykR2pWPkrbyHZm2WU8z63t151z4av7iqTA
+- offer 499 altar-proof2.testnet: 2q68nAMKt2Lmv1e671NP8Pp7HV86hbU4WduQFUWZnxmP
+- offer 499 altar-proof3.testnet: S8iEWbFARQL3wgdwnULvkhMd66cwZoyJTMew4Qb8azc
+- offer 499 altar-proof4.testnet: 3V5LoCEUNuvYotz3QNPLca4PXkUxgoFHvDwMGVCUxUCV
+- offer 499 altar-proof5.testnet: DXPdDire1iLGeMekscYVTkf8yYzQB6CcKPFjfMwV4ozZ
+- offer 499 altar-proof6.testnet: HBv9WVcLEjj19dMoca5syA7FgrPtaArLF1A6446sJZie
+- round 2990594 after offers: total_offered=2994000000000000000000 offerer_count=6 threshold=2499850000000000000000
+- round 2990594 ended; calling answer()
+- answer (pass) tx: AyGqvjHAqCVkFvHtZTQT2U1oFtw2w4siPLjdr2cv2W4i
+- round 2990594 record: {"round_id":2990594,"total_offered":"2994000000000000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"6736500000000000000000","burned":"2994000000000000000000","feast_paid":"0","streak_after":1}
+- supply after pass: 1003682500000000000000000
+- streak after pass: 1
+- treasury (altar share): 748500000000000000000
+- final balance altar-proof1.testnet: 10489000000000000000000
+- final balance altar-proof2.testnet: 10489000000000000000000
+- final balance altar-proof3.testnet: 10489000000000000000000
+- final balance altar-proof4.testnet: 10489000000000000000000
+- final balance altar-proof5.testnet: 10489000000000000000000
+- final balance altar-proof6.testnet: 10489000000000000000000

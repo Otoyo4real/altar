@@ -1,0 +1,53 @@
+# ALTAR Feast proof log
+
+Ran 2026-11-11T01:30:10.958Z on altar-ritual-demo.testnet (600s rounds).
+
+- starting streak: 4
+- --- pass round 2990598 (streak 4 -> 5), 585s left, threshold 2531860581925056250000
+- offer 506372116385011250000 altar-proof1.testnet: 63LXptpsS56vQajQzQ5U7baMB6EFXB7kAp6AHieC8hqL
+- offer 506372116385011250000 altar-proof2.testnet: 8DSXVV8dajbwUbDshqeSLnoVhqKnJncBjawZZYdVtBqN
+- offer 506372116385011250000 altar-proof3.testnet: 9HszkeVPNocLBM6gvEaFsQY1Act76Mq3X8HJydLmzQD8
+- offer 506372116385011250000 altar-proof4.testnet: 7qMZc2gtE5ZoLAgSZnuedGKjpKJTsar1by6CZWDkJrwe
+- offer 506372116385011250000 altar-proof5.testnet: ABegWjCXKUARHWAzV51dao3j6a5bSDu1bNQpDSU4TUoZ
+- offer 506372116385011250000 altar-proof6.testnet: 79kX9fNf1nHbL98w6B8vZQ4f3Ra5K8abXLYByHZ9VTbc
+- round 2990598 after offers: total_offered=3038232698310067500000 offerer_count=6 threshold=2531860581925056250000
+- round 2990598 ended; calling answer()
+- answer tx: 5XdE9U663VQ2exXnGAvq3qoHJqvkd1xYJcVNo9Z8Fsot
+- round 2990598 record: {"round_id":2990598,"total_offered":"3038232698310067500000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7595581745775168750000","burned":"3038232698310067500000","feast_paid":"0","streak_after":5}
+- streak now: 5
+- treasury now: 3771436248882016875000
+- --- pass round 2990599 (streak 5 -> 6), 594s left, threshold 2541355059107275210937
+- offer 508271011821455042187 altar-proof1.testnet: DisYxpQhTYmynqH5azvj7tfoMTuWXPYvUtd9G2vVSHZf
+- offer 508271011821455042187 altar-proof2.testnet: 7mpBp91rfTQi2vpxVupC6KwViWcyKjunFovzvbuvB9Sg
+- offer 508271011821455042187 altar-proof3.testnet: D2H26ehpaSnAXpGieHYZV1Vzy8qopuFVBSkWf5MuB6M3
+- offer 508271011821455042187 altar-proof4.testnet: 8oREKb5VJiAapJgFU8n8VBzhHBjPMrKFMQvcc1fVqoP6
+- offer 508271011821455042187 altar-proof5.testnet: HCyQ5inDp9Y6oekAhReUPDaWMRDgtScZgL5TF3dkWTrE
+- offer 508271011821455042187 altar-proof6.testnet: GmjCEF8nvaMnZar3hz5mwLi82xwEt3zNkjeoX7b6z95P
+- round 2990599 after offers: total_offered=3049626070928730253122 offerer_count=6 threshold=2541355059107275210937
+- round 2990599 ended; calling answer()
+- answer tx: 4xkUd4zm6FhZp7rBvPSL4mmwFbs4MSwp1hMD1jBfGRnk
+- round 2990599 record: {"round_id":2990599,"total_offered":"3049626070928730253122","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7624065177321825632805","burned":"3049626070928730253122","feast_paid":"0","streak_after":6}
+- streak now: 6
+- treasury now: 4533842766614199438280
+- --- pass round 2990600 (streak 6 -> 7), 585s left, threshold 2550885140578927492978
+- offer 510177028115785498595 altar-proof1.testnet: Ejk2tZmfT9KkgQouGck2C1uYWBbfsz8GYQN4TjyzsghZ
+- offer 510177028115785498595 altar-proof2.testnet: AtEDDHgySo61o9FFgV1tkfhGx9NsnbFSA8nkQnypAXro
+- offer 510177028115785498595 altar-proof3.testnet: DkmVuM2XfGib7p3QFVESDkrHKYQtuefuJZCQ3ne2Rsze
+- offer 510177028115785498595 altar-proof4.testnet: CbLxJH4kXE9ZAvXCTJ5zwDGMmYqnCFXYgCbwfu33kc2
+- offer 510177028115785498595 altar-proof5.testnet: 29rdT7qrNKyNzZEVrC8LhvNw4Fpu6yyuLa7rep4ft6u9
+- offer 510177028115785498595 altar-proof6.testnet: 8n9v29rdw3LqAfuATxe1UnXgJB4J54DiDwEyemk1vQJh
+- round 2990600 after offers: total_offered=3061062168694712991570 offerer_count=6 threshold=2550885140578927492978
+- round 2990600 ended; calling answer()
+- answer tx: BDs42ysTN924j2osgqeKBDXt7AmWtYBzVrkVSKWUjwEu
+- round 2990600 record: {"round_id":2990600,"total_offered":"3061062168694712991570","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7652655421736782478925","burned":"3061062168694712991570","feast_paid":"5299108308787877686172","streak_after":7}
+- streak now: 7
+- treasury now: 0
+- final supply: 1029479492251227266117038
+- final streak: 7
+- final treasury: 0
+- final balance altar-proof1.testnet: 14913248708537877686171
+- final balance altar-proof2.testnet: 14913248708537877686171
+- final balance altar-proof3.testnet: 14913248708537877686171
+- final balance altar-proof4.testnet: 14913248708537877686171
+- final balance altar-proof5.testnet: 14913248708537877686171
+- final balance altar-proof6.testnet: 14913248708537877686183
