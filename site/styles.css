@@ -62,8 +62,22 @@ body, button, input {
   font-size: 12px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 999px;
+  background: transparent;
+  white-space: nowrap;
+}
+#headerDemoLink.live {
+  color: #171204;
+  background: var(--gold);
+  border-color: var(--gold);
+}
+#headerDemoLink.demo {
+  color: var(--gold);
+  background: transparent;
+  border-color: var(--gold);
 }
 #connectBtn {
   background: transparent;
@@ -90,16 +104,21 @@ body, button, input {
   margin-top: 4px;
 }
 .nav a {
-  color: var(--muted);
+  color: var(--gold);
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   text-decoration: none;
-  padding: 6px 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 999px;
+  background: transparent;
 }
+.nav a:hover { border-color: var(--gold); }
 .nav a.active {
-  color: var(--gold);
-  border-bottom: 1px solid var(--gold);
+  color: #171204;
+  background: var(--gold);
+  border-color: var(--gold);
 }
 .demo-banner {
   max-width: 680px;
@@ -364,6 +383,7 @@ td .acct { word-break: break-all; }
   color: var(--muted);
   padding: 18px 0;
 }
+.empty a { color: var(--gold); }
 footer {
   max-width: 680px;
   margin: 0 auto;
@@ -373,10 +393,13 @@ footer {
   font-size: 14px;
 }
 footer .contract { color: var(--gold-soft); }
+footer a { color: var(--gold); }
 @media (max-width: 520px) {
   .hero h1 { font-size: 32px; }
   .hero { padding: 64px 20px 48px; }
   .big { font-size: 30px; }
   .count { font-size: 36px; }
-  table { font-size: 14px; }
+  table { font-size: 13px; }
+  th, td { padding: 8px 4px; }
+  th { font-size: 12px; letter-spacing: 0.04em; }
 }

@@ -510,8 +510,16 @@
     if (!body) return;
     var rows = null;
     try { rows = await view("get_round_history", { limit: 10 }); } catch (_) { rows = null; }
-    if (!rows || !rows.length) {
-      body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet.</td></tr>";
+    if (rows === null) {
+      body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">Past rounds could not be loaded. Check your connection and reload.</td></tr>";
+      return;
+    }
+    if (!rows.length) {
+      if (DEMO_MODE) {
+        body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet on the demo altar.</td></tr>";
+      } else {
+        body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet on the live altar. Nobody has offered here yet. The FAIL, the PASS and the Feast Day rounds are on the demo altar. <a href=\"rounds.html?demo=1\">See the demo rounds</a></td></tr>";
+      }
       return;
     }
     var html = "";
@@ -699,17 +707,28 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     setText("contractId", CONTRACT_ID);
-    // The header demo link is a plain link in the HTML ("<page>?demo=1"),
-    // so production to demo works even if this script is stale or fails.
-    // Here we only flip it back in demo mode, show the demo banner on
-    // every page, and carry ?demo=1 onto the page nav links.
     var demoBanner = el("demoBanner");
     if (demoBanner) demoBanner.hidden = !DEMO_MODE;
+    // The header pill shows the mode you are ON, not where the link
+    // goes: filled gold LIVE on production, outlined DEMO on the demo
+    // contract. Tapping it switches modes. The static HTML already
+    // says LIVE with a plain "?demo=1" link, so production to demo
+    // works even if this script is stale or fails.
     var headerDemo = el("headerDemoLink");
-    if (headerDemo && DEMO_MODE) {
-      headerDemo.textContent = "Live altar";
-      var page = window.location.pathname.split("/").pop() || "index.html";
-      headerDemo.setAttribute("href", page);
+    if (headerDemo) {
+      if (DEMO_MODE) {
+        headerDemo.textContent = "Demo";
+        var page = window.location.pathname.split("/").pop() || "index.html";
+        headerDemo.setAttribute("href", page);
+        headerDemo.setAttribute("title", "Switch to the live altar");
+        headerDemo.classList.remove("live");
+        headerDemo.classList.add("demo");
+      } else {
+        headerDemo.textContent = "Live";
+        headerDemo.setAttribute("title", "Switch to the demo altar");
+        headerDemo.classList.remove("demo");
+        headerDemo.classList.add("live");
+      }
     }
     if (DEMO_MODE) {
       var navLinks = document.querySelectorAll("a[data-page]");
