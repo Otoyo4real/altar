@@ -229,6 +229,23 @@ button.offer, button.answer {
   font-size: 18px;
   cursor: pointer;
 }
+button.claim {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold-dim);
+  border-radius: 999px;
+  padding: 12px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+button.claim:hover { border-color: var(--gold); }
+button.claim:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 button.offer:hover, button.answer:hover { background: #e3c25a; }
 button.offer:disabled, button.answer:disabled {
   opacity: 0.45;

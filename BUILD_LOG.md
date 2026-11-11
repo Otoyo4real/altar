@@ -122,3 +122,110 @@ All three ALTAR outcomes are now proven live on the demo instance
   EcBNydeXySwEw68iWp7z3T1nW8XthzJPxoEyFhQyRk8G, streak 4) then resuming
   feast-proof.mjs for rounds 2990598-2990600. No state was lost.
 - Logs: scripts/live-proof-log.md, scripts/feast-proof-log.md.
+
+## v2 — the claim faucet (2026-11-11 ~08:46 WAT)
+
+**The gap:** the deployer held all 1,000,000 genesis ALTAR and there was
+no way for a new wallet to get any. Isaiah asked: connect a wallet, how
+do we get offer tokens — is there a claim, or do we buy it? Decision:
+**CLAIM, not buy** (no DEX listing — too much friction for judges;
+free-first fits the demo).
+
+**Contract change (`contract/src/lib.rs`):** new `claim()` function —
+mints exactly 100 ALTAR to the caller, once per wallet. The claim
+registers the caller on the token and mints in the same call, so a
+brand-new wallet can claim and immediately offer (1 yoctoNEAR
+attached; the contract covers the storage cost from its own balance).
+Tracked in a `claimed` set plus a running `total_claimed`; the faucet
+stops at 100,000 ALTAR total (1,000 claims). New view
+`get_claimed(account_id) -> bool` (the site uses it to disable the
+claim button); `get_params` now also carries `claim_amount`,
+`claim_cap_total` and `total_claimed`. The claim starts the caller's
+reputation clock (same as any inflow). New-wallet math: a fresh
+wallet's offer cap is floored at the 10 minimum, so 100 is enough to
+offer 10/round and grow via passes. Cap and reputation rules
+unchanged. The faucet mints new supply, separate from the ritual mint;
+the 60-day simulation models the ritual only and was not re-run.
+**Tests: 46 passed, 0 failed** (40 existing + 6 new: claim mints 100
+to a fresh wallet, second claim panics, claim then offer works, cap
+enforced at 1,000 claims, claim on production init, get_claimed false
+for unclaimed). Wasm 218,708 bytes (SHA-256
+426427c09d4ecb2baa5e2d7ba09dbd246e4366693c2a46a18363603908398211).
+
+**Redeploy (fresh accounts — the claim adds struct fields, so the old
+state cannot be read by the new code):**
+- Production: **`altar-ritual-v2.testnet`** — deploy tx
+  Dmb4w9Sr5nauPwM43PUHAzHPh9GpKMM31KLjj9f8NSWh, init tx
+  2aEgb8Dt2p2Y5bYHhrJTGA7ufniUNX1BPYWVL25PnYLM. Init (86400, 40, 2.0,
+  7). Verified onchain: supply 1,000,000, deployer holds genesis,
+  streak 0, treasury 0, claim_amount 100, claim_cap_total 100,000,
+  total_claimed 0.
+- Demo: **`altar-ritual-v2-demo.testnet`** — deploy tx
+  HbaVqyJaQJowdGHkr3EGnxMTZyPriab5LydiJoSrzztJ, init tx
+  CdvPgNyhg7KY98wfp91CkZYvtpvgaqGjqrGrByNweHEg. Init (600, 5, 0.25, 1).
+  Verified onchain: supply 1,000,000, claim fields as above.
+- The v1 deployments (`altar-ritual.testnet`,
+  `altar-ritual-demo.testnet`) are ABANDONED (no claim function; no
+  user funds at stake — only the genesis supply and test-wallet ALTAR).
+  Do not use them. The earlier deployments (`altar-offering.testnet`,
+  `altar-demo.testnet`) remain abandoned (buggy `answer()`).
+- New scripts: `scripts/deploy-v2.mjs`, `scripts/deploy-v2-demo.mjs`
+  (create the account via the helper, deploy, init, verify),
+  `scripts/claim-proof.mjs` (claim verification + offer after claim).
+  `scripts/live-proof.mjs` and `scripts/feast-proof.mjs` now point at
+  the v2 demo and append to their logs instead of overwriting.
+- **Keys:** all accounts' keys are in
+  `~/workspace/altar/.testnet-accounts.json` (chmod 600) and in the
+  standard `~/.near-credentials/testnet/` keystore. Never print them.
+
+**Site:** `config.js` now points at the v2 contracts (production
+`altar-ritual-v2.testnet`, demo `altar-ritual-v2-demo.testnet`). A
+"Claim 100 test ALTAR" button sits in the offering box: visible when a
+wallet is connected, disabled with a clear note if that wallet already
+claimed (or the faucet is empty). The demo view (`?demo=1`) still
+switches contracts. Verified in the headless Chromium shell (both
+modes render the right contract id, toggle text, demo notice and
+heading; the claim button is disabled with no wallet connected and
+shows the connect note; the sandbox cannot reach live RPC, so live
+numbers stay dashes there — expected).
+
+## Live proofs — v2 demo (2026-11-11, `altar-ritual-v2-demo.testnet`)
+
+- **CLAIM** — two fresh wallets (`altar-claim1.testnet`,
+  `altar-claim2.testnet`): claim txs
+  ABwCDkpBtvuLbCAg6HYr85wzWsKnVyYPJy9A6HyRhrSz and
+  94d3EYh6MPKdFhe2bSapU9KxumgCYP8E8amodxprEsmt; balance exactly 100
+  each after, `get_claimed` true, `total_claimed` 200. Second claim by
+  claim1 failed as expected ("already claimed: one claim per wallet");
+  balance stayed 100. `get_claimed` for a never-claimed wallet
+  (`altar-proof1.testnet`) is false.
+- **OFFER AFTER CLAIM** — both claim wallets offered 10 each in round
+  2990639 (offer txs B7LHZZWtFYNBfhDRhShKjMW8KyFsLBvk4i4CtYkQsYrZ,
+  HuG2EQyBLCV37Ze7AjtxTvzEZZcL39RYa5HD2Vv2kkwA); total 20 vs the
+  2,500.5 gate. Round failed as expected (answer
+  BUjnwzyutuAfUHGFNhk22h3KDXdcm5f4z45FX2qxBgUr, burned 20, streak 0);
+  supply 1,000,180 (1,000,000 genesis + 200 claimed − 20 burned);
+  each claim wallet 90 after the burn.
+- **FAIL + PASS (resumed)** — a runtime restart killed live-proof.mjs
+  after it placed the FAIL round offers (round 2990640, 6 x 10 = 60)
+  and wiped /tmp. Recovered from onchain state with
+  scripts/live-proof-resume-v2.mjs (log lines appended incrementally,
+  so progress survives another restart):
+  - FAIL round 2990640 (6 x 10 = 60 vs 2,500.45 gate): answer
+    EhMPpiyzVyxVxkd1tky7T6WcoUQ82L12zzioWwnmkBP8; status Failed,
+    burned 60, supply 1,000,120, streak 0.
+  - PASS round 2990641 (6 x 499 = 2,994 vs 2,500.3 gate): offer txs
+    2rkuvtjs9MwQjhXbvFpe14qEzG7ugXRgqirjpjBFDdwx,
+    5XzCBCmEgfm68TjnRT8sS8T5MrEgVfnoYc2mNSRVhr1Z,
+    H6sEPxf364AXMwQER78VuoKZW7hYHrr9csXYPuVmdVfF,
+    7uzgNYfTkMDTDuX844SASfoijAPEh7gUg2MWnHdU7GdJ,
+    CWE5b4LdxPW99DHmvggE8CtC7DeA2i9NrLMErmFDzSEH,
+    7ABFW5RmHAFntiDZhT6Aruu88KpK4CySgJKEtgP4tfa7; answer
+    6qVsUib8WWBy7N2aK8ok8AMPKEhxbrNTGc9uM47zn8jA; status Passed,
+    minted 6,736.5 = 2.25x, burned 2,994, treasury 748.5 = 0.25x,
+    streak 1, supply 1,003,862.5, each wallet 10,489.
+- **FEAST** — re-running in the background (scripts/feast-proof.mjs,
+  streak 1 -> 7, ~6 more passing rounds); results to be appended to
+  scripts/feast-proof-log.md when it finishes.
+- Logs: scripts/live-proof-log.md (claim proof appended; earlier proofs
+  in it were on the abandoned v1 demo).

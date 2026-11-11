@@ -1,12 +1,13 @@
-// Live scripted proofs for the ALTAR demo instance (altar-demo.testnet, 600s rounds).
+// Live scripted proofs for the ALTAR demo instance v2 (altar-ritual-v2-demo.testnet, 600s rounds).
 // Round R: 6 wallets offer 10 each (total 60, far below the 2,500 gate) -> FAIL, burned.
 // Round R+1: same 6 wallets offer 499 each (total 2,994, above the ~2,499 gate) -> PASS.
 // Verifies onchain: round records, supply, balances, streak, treasury.
+// Appends to the log (the earlier proofs in it were on the abandoned v1 demo).
 // Prints only public values and tx hashes - never secret keys.
 import fs from 'node:fs';
 import { connect, keyStores, KeyPair, utils } from '/home/hatch/workspace/merit/node_modules/near-api-js/lib/index.js';
 
-const DEMO = 'altar-ritual-demo.testnet';
+const DEMO = 'altar-ritual-v2-demo.testnet';
 const RECORD = '/home/hatch/workspace/altar/.testnet-accounts.json';
 const KEYDIR = '/home/hatch/.near-credentials/testnet';
 const LOG = '/home/hatch/workspace/altar/scripts/live-proof-log.md';
@@ -136,5 +137,5 @@ const treasury = await deployer.viewFunction({ contractId: DEMO, methodName: 'ge
 log(`treasury (altar share): ${treasury}`);
 for (const id of NAMES) log(`final balance ${id}: ${await getBalance(id)}`);
 
-fs.writeFileSync(LOG, `# ALTAR live proof log\n\nRan ${new Date().toISOString()} on ${DEMO} (600s rounds).\n\n` + logLines.map((l) => `- ${l}`).join('\n') + '\n');
+fs.appendFileSync(LOG, `\n## FAIL + PASS proof — v2 demo (${new Date().toISOString()})\n\nRan on ${DEMO} (600s rounds). The earlier proofs above were on the abandoned v1 demo contract altar-ritual-demo.testnet.\n\n` + logLines.map((l) => `- ${l}`).join('\n') + '\n');
 log('LIVE PROOF DONE');

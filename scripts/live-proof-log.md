@@ -60,3 +60,67 @@ Ran 2026-11-11T00:30:12.828Z on altar-ritual-demo.testnet (600s rounds).
 - final balance altar-proof4.testnet: 10489000000000000000000
 - final balance altar-proof5.testnet: 10489000000000000000000
 - final balance altar-proof6.testnet: 10489000000000000000000
+
+## Claim proof — v2 demo (2026-11-11T08:00:16.622Z)
+
+Ran on altar-ritual-v2-demo.testnet (600s rounds). The earlier proofs above were on the abandoned v1 demo contract altar-ritual-demo.testnet.
+
+- wallet created: altar-claim1.testnet
+- wallet created: altar-claim2.testnet
+- get_claimed altar-claim1.testnet before: false
+- claim altar-claim1.testnet: ABwCDkpBtvuLbCAg6HYr85wzWsKnVyYPJy9A6HyRhrSz
+-   balance altar-claim1.testnet: 100000000000000000000
+-   get_claimed altar-claim1.testnet after: true
+- get_claimed altar-claim2.testnet before: false
+- claim altar-claim2.testnet: 94d3EYh6MPKdFhe2bSapU9KxumgCYP8E8amodxprEsmt
+-   balance altar-claim2.testnet: 100000000000000000000
+-   get_claimed altar-claim2.testnet after: true
+- total_claimed in get_params: 200000000000000000000
+- second claim altar-claim1.testnet failed as expected: {"index":0,"kind":{"index":0,"kind":{"FunctionCallError":{"ExecutionError":"Smart contract panicked: panicked at src/lib.rs:609:9:\nalready claimed: one claim per wallet"}}}}
+- balance altar-claim1.testnet after failed second claim: 100000000000000000000
+- get_claimed altar-proof1.testnet (never claimed): false
+- claim-offer round will be 2990639 (549s left)
+- offer 10 altar-claim1.testnet: B7LHZZWtFYNBfhDRhShKjMW8KyFsLBvk4i4CtYkQsYrZ
+- offer 10 altar-claim2.testnet: HuG2EQyBLCV37Ze7AjtxTvzEZZcL39RYa5HD2Vv2kkwA
+- round 2990639 after offers: total_offered=20000000000000000000 offerer_count=2 threshold=2500500000000000000000
+- balance altar-claim1.testnet after offer: 90000000000000000000
+- balance altar-claim2.testnet after offer: 90000000000000000000
+- round 2990639 ended; calling answer()
+- answer tx: BUjnwzyutuAfUHGFNhk22h3KDXdcm5f4z45FX2qxBgUr
+- round 2990639 record: {"round_id":2990639,"total_offered":"20000000000000000000","offerer_count":2,"status":"Failed","last_offerer":"altar-claim2.testnet","minted":"0","burned":"20000000000000000000","feast_paid":"0","streak_after":0}
+- supply after fail: 1000180000000000000000000
+- final balance altar-claim1.testnet: 90000000000000000000
+- final balance altar-claim2.testnet: 90000000000000000000
+
+## FAIL + PASS proof (resumed) — v2 demo (2026-11-11T08:08:03.401Z)
+
+Ran on altar-ritual-v2-demo.testnet (600s rounds). live-proof.mjs was killed by a runtime restart after placing the FAIL round offers; this resume settles that round and runs the PASS round. The earlier proofs above were on the abandoned v1 demo contract altar-ritual-demo.testnet.
+
+- round 2990640 not settled yet; waiting for it to end, then calling answer()
+- round 2990640 ended; calling answer()
+- answer (fail) tx: EhMPpiyzVyxVxkd1tky7T6WcoUQ82L12zzioWwnmkBP8
+- round 2990640 record: {"round_id":2990640,"total_offered":"60000000000000000000","offerer_count":6,"status":"Failed","last_offerer":"altar-proof6.testnet","minted":"0","burned":"60000000000000000000","feast_paid":"0","streak_after":0}
+- supply after fail: 1000120000000000000000000
+- streak after fail: 0
+- current round 2990641, ends in 590s, threshold 2500300000000000000000
+- PASS round will be 2990641
+- offer 499 altar-proof1.testnet: 2rkuvtjs9MwQjhXbvFpe14qEzG7ugXRgqirjpjBFDdwx
+- offer 499 altar-proof2.testnet: 5XzCBCmEgfm68TjnRT8sS8T5MrEgVfnoYc2mNSRVhr1Z
+- offer 499 altar-proof3.testnet: H6sEPxf364AXMwQER78VuoKZW7hYHrr9csXYPuVmdVfF
+- offer 499 altar-proof4.testnet: 7uzgNYfTkMDTDuX844SASfoijAPEh7gUg2MWnHdU7GdJ
+- offer 499 altar-proof5.testnet: CWE5b4LdxPW99DHmvggE8CtC7DeA2i9NrLMErmFDzSEH
+- offer 499 altar-proof6.testnet: 7ABFW5RmHAFntiDZhT6Aruu88KpK4CySgJKEtgP4tfa7
+- round 2990641 after offers: total_offered=2994000000000000000000 offerer_count=6 threshold=2500300000000000000000
+- round 2990641 ended; calling answer()
+- answer (pass) tx: 6qVsUib8WWBy7N2aK8ok8AMPKEhxbrNTGc9uM47zn8jA
+- round 2990641 record: {"round_id":2990641,"total_offered":"2994000000000000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"6736500000000000000000","burned":"2994000000000000000000","feast_paid":"0","streak_after":1}
+- supply after pass: 1003862500000000000000000
+- streak after pass: 1
+- treasury (altar share): 748500000000000000000
+- final balance altar-proof1.testnet: 10489000000000000000000
+- final balance altar-proof2.testnet: 10489000000000000000000
+- final balance altar-proof3.testnet: 10489000000000000000000
+- final balance altar-proof4.testnet: 10489000000000000000000
+- final balance altar-proof5.testnet: 10489000000000000000000
+- final balance altar-proof6.testnet: 10489000000000000000000
+- LIVE PROOF (RESUMED) DONE

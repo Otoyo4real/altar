@@ -25,6 +25,7 @@
   var thresholdNow = null;
   var supplyCapNow = null;
   var reputationNow = null;
+  var claimedNow = null;
   var walletAccountId = null;
 
   function el(id) { return document.getElementById(id); }
@@ -276,6 +277,7 @@
     refreshWalletBtn();
     if (walletAccountId) refreshBalance();
     if (walletAccountId) refreshReputation();
+    refreshClaim();
   }
   async function disconnectWallet() {
     try { localStorage.setItem("altar-wallet-disconnected", "1"); } catch (_) { /* storage unavailable */ }
@@ -287,6 +289,8 @@
     walletAccountId = null;
     balanceNow = null;
     reputationNow = null;
+    claimedNow = null;
+    renderClaim();
     renderReputation();
     setText("myBalance", DASH);
     setText("myCap", DASH);
@@ -310,6 +314,7 @@
       pageStatus("");
       refreshBalance();
       refreshReputation();
+      refreshClaim();
     } catch (e) { pageStatus("Wallet error: " + String(e && e.message ? e.message : e).slice(0, 160)); }
   }
   function walletCall(method, args, depositYocto) {
@@ -432,8 +437,10 @@
     renderStreakAndFeast();
     renderHistory();
     updateCapDisplay();
+    renderClaim();
     if (walletAccountId) refreshBalance();
     if (walletAccountId) refreshReputation();
+    if (walletAccountId) refreshClaim();
     tickCountdown();
   }
   async function renderHistory() {
@@ -475,6 +482,65 @@
     var s = left % 60;
     n.textContent = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
     if (btn) btn.disabled = true;
+  }
+
+  // ---- Claim (testnet faucet) --------------------------------------
+  function renderClaim() {
+    var btn = el("claimBtn");
+    var note = el("claimNote");
+    if (!btn || !note) return;
+    if (!walletAccountId) {
+      btn.disabled = true;
+      btn.textContent = "Claim 100 test ALTAR";
+      note.textContent = "Connect your wallet to claim 100 free test ALTAR, once per wallet.";
+      return;
+    }
+    if (claimedNow === null) {
+      btn.disabled = true;
+      note.textContent = "Checking whether you already claimed.";
+      return;
+    }
+    if (claimedNow) {
+      btn.disabled = true;
+      btn.textContent = "Already claimed";
+      note.textContent = "You already claimed your 100 test ALTAR. One claim per wallet.";
+      return;
+    }
+    // Faucet empty: the cap is reached, so a claim would fail onchain.
+    try {
+      if (paramsNow && paramsNow.total_claimed && paramsNow.claim_cap_total &&
+          BigInt(String(paramsNow.total_claimed)) >= BigInt(String(paramsNow.claim_cap_total))) {
+        btn.disabled = true;
+        btn.textContent = "Faucet empty";
+        note.textContent = "The faucet is empty. All 100,000 test ALTAR have been claimed.";
+        return;
+      }
+    } catch (_) { /* fall through to the claimable state */ }
+    btn.disabled = false;
+    btn.textContent = "Claim 100 test ALTAR";
+    note.textContent = "Free, once per wallet. 100 test ALTAR to start offering with.";
+  }
+  async function refreshClaim() {
+    if (!walletAccountId) { claimedNow = null; renderClaim(); return; }
+    try {
+      claimedNow = await view("get_claimed", { account_id: walletAccountId });
+    } catch (_) {
+      claimedNow = null;
+    }
+    renderClaim();
+  }
+  async function onClaim() {
+    if (!walletAccountId) { pageStatus("Connect your wallet to claim."); return; }
+    try {
+      pageStatus("Opening your wallet to confirm the claim.");
+      await walletCall("claim", {}, "1");
+      pageStatus("Claim sent. Your 100 test ALTAR will show here once the chain confirms it.");
+      claimedNow = true;
+      renderClaim();
+      setTimeout(function () { refreshAll(); refreshClaim(); }, 4000);
+    } catch (e) {
+      pageStatus("Wallet error: " + String(e && e.message ? e.message : e).slice(0, 160));
+    }
   }
 
   // ---- Offer and Answer ----
@@ -532,6 +598,8 @@
     renderReputation();
     var connectBtn = el("connectBtn");
     if (connectBtn) connectBtn.addEventListener("click", toggleWallet);
+    var claimBtn = el("claimBtn");
+    if (claimBtn) claimBtn.addEventListener("click", onClaim);
     var offerBtn = el("offerBtn");
     if (offerBtn) offerBtn.addEventListener("click", onOffer);
     var answerBtn = el("answerBtn");

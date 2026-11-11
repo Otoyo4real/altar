@@ -8,6 +8,8 @@ No one wallet can offer more than 0.05% of supply. The altar needs a crowd of at
 
 New wallets start small. Your offering cap grows with every round you hold, up to the full 0.05% after a week of holding. Sell everything and your reputation resets to zero.
 
+No ALTAR yet? Claim 100 free test ALTAR on the site, once per wallet. The faucet stops at 100,000 total.
+
 ## The Offering
 
 $ALTAR is a memecoin that only grows when enough holders offer some of their own coins together before midnight. Miss the daily offering and the offered coins are gone forever and the supply shrinks.
@@ -24,6 +26,8 @@ One contract, one NEP-141 token, no owner, no pause, no setters. Every parameter
 **The Altar's share.** The treasury holds ALTAR only, funded only by the 0.25x pass mint. It has exactly one permitted spend: on every 7th consecutive pass, Feast Day, the entire share is distributed to that week's offerers, shared in proportion to what each offered. No vote, no admin, no agent. Between feasts it is visible on the site as a growing pot.
 
 **Reputation.** Every wallet carries a first round, the round it first received ALTAR. Your reputation factor is the rounds you have held divided by 7, capped at 1. A brand new wallet can offer exactly the 10 minimum and no more. After a week of holding you offer at the full 0.05% cap. Sell everything and your reputation resets to zero. Partial sales do not reset it. The site shows your cap and your rounds held. The demo instance uses 1 reputation round, so demo wallets reach full reputation after one round.
+
+**Claim (testnet faucet).** Any wallet calls `claim()` once and receives exactly 100 test ALTAR, minted in the same call — the claim registers the wallet on the token, so a brand-new wallet can claim and immediately offer. The faucet stops at 100,000 ALTAR total (1,000 claims). A fresh wallet's offer cap is floored at the 10 minimum, so 100 is enough to offer 10 a round and grow through passes. The site shows a "Claim 100 test ALTAR" button when your wallet is connected and disables it, with a clear note, once you have claimed. The faucet mints new supply, separate from the ritual mint; the 60-day simulation models the ritual only.
 
 ## Parameters
 
@@ -43,6 +47,7 @@ Production init: `new(86400, 40, 2.0, 7)`. Demo init: `new(600, 5, 0.25, 1)`.
 | Altar's share on pass | 0.25x of total offered | Same |
 | Feast Day | Every 7th consecutive pass, entire share paid out | Same |
 | Last Offering | Title recorded onchain for the last offerer, no extra tokens | Same |
+| Claim (testnet faucet) | 100 ALTAR once per wallet, 100,000 total cap | Same |
 
 The demo keeps the real 0.05% cap and the real reputation rule. Only the round length, the offerer threshold, the supply gate, and the reputation rounds are lowered, so 5 offerers at the cap exactly reach the 0.25% demo gate (5 times 0.05% = 0.25%). The demo init params are disclosed here and in `get_params()`.
 
@@ -59,10 +64,11 @@ Note: an earlier draft of this example quoted a pass supply of 1,056,250. That a
 ## The 60 second judge path
 
 1. Open the live page and read the line, the rule, the Offering bowl filling toward the 2% line, the offerer count, the countdown to midnight, the streak, the Altar's share, and the Last Offering.
-2. Offer some ALTAR and watch your balance move into the vault and your cap shown.
-3. Call the Answer after midnight and watch the outcome: on a pass, offerers receive double and the supply number rises; on a fail, the offered coins are gone and the supply falls.
-4. Call `get_params()` to prove every threshold, cap, and multiplier is fixed and public.
-5. Read the Known Limits below.
+2. Connect a wallet and claim 100 free test ALTAR with the claim button. No tokens to buy, no transfer to arrange.
+3. Offer some ALTAR and watch your balance move into the vault and your cap shown.
+4. Call the Answer after midnight and watch the outcome: on a pass, offerers receive double and the supply number rises; on a fail, the offered coins are gone and the supply falls.
+5. Call `get_params()` to prove every threshold, cap, and multiplier is fixed and public.
+6. Read the Known Limits below.
 
 ## Simulation
 
@@ -88,17 +94,18 @@ Scenario E: in round 1 the split offers 40 times 10 = 400 against the 20,000 gat
 - **No price or liquidity.** Deliberate. The track judges the mechanic, not the chart. No DEX pool is built.
 - **The gate implies the crowd.** Under the 0.05% cap, meeting the 2% amount gate requires at least 40 offerers, so the amount gate implies the offerer gate. 39 wallets at the cap offer 19,500, below the 20,000 gate.
 - **The demo is a demo.** It uses 10 minute rounds, 5 offerers, a 0.25% gate, and 1 reputation round. The cap, the multipliers, the treasury rule, and the reputation rule are the real ones.
+- **The faucet is testnet only.** It mints new supply (100 per claim, 100,000 total), separate from the ritual mint. One claim per wallet, enforced onchain; the site disables the button once a wallet has claimed. It exists so anyone can try the ritual without asking the deployer for tokens. It does not exist on mainnet.
 
 ## Build, test, and deploy
 
-Contract: `contract/`, Rust with near-sdk. Build with `cargo near build non-reproducible-wasm` (needs `~/.cargo/bin` on PATH). Tests with `cargo test`: 39 passed, 0 failed. Near sandbox integration tests cannot run in this environment (file descriptor limit 4096, sandbox needs 65535), so coverage is unit tests at both demo and production init values. Wasm is `contract/target/near/altar.wasm` (215,053 bytes).
+Contract: `contract/`, Rust with near-sdk. Build with `cargo near build non-reproducible-wasm` (needs `~/.cargo/bin` on PATH). Tests with `cargo test`: 46 passed, 0 failed. Near sandbox integration tests cannot run in this environment (file descriptor limit 4096, sandbox needs 65535), so coverage is unit tests at both demo and production init values. Wasm is `contract/target/near/altar.wasm` (218,708 bytes, SHA-256 426427c09d4ecb2baa5e2d7ba09dbd246e4366693c2a46a18363603908398211).
 
 Simulation: `scripts/simulate.mjs`, run with `node simulate.mjs`. Results in `scripts/simulation-results.md`.
 
-Site: `site/`, static HTML, CSS, and JS, no build step. Set `config.js` `CONTRACT_ID` to the deployed contract account, then serve and open it. It uses the @fastnear/wallet bundle for connect on testnet.
+Site: `site/`, static HTML, CSS, and JS, no build step. Set `config.js` `CONTRACT_ID` to the deployed contract account, then serve and open it. It uses the @fastnear/wallet bundle for connect on testnet. The site has a "Claim 100 test ALTAR" button (visible when a wallet is connected, disabled once that wallet has claimed) and a demo view (`?demo=1`) that reads the demo contract instead of production.
 
-Deploy (not done yet): deploy the contract to a testnet account with `new(86400, 40, 2.0, 7)` for production or `new(600, 5, 0.25, 1)` for the demo instance, point the site at it, and run scripted pass, fail, and Feast rounds with 5 to 10 wallets before submitting.
+Deploy (testnet, v2 with the claim faucet, 2026-11-11): production `altar-ritual-v2.testnet` (deploy tx Dmb4w9Sr5nauPwM43PUHAzHPh9GpKMM31KLjj9f8NSWh, init tx 2aEgb8Dt2p2Y5bYHhrJTGA7ufniUNX1BPYWVL25PnYLM), demo `altar-ritual-v2-demo.testnet` (deploy tx HbaVqyJaQJowdGHkr3EGnxMTZyPriab5LydiJoSrzztJ, init tx CdvPgNyhg7KY98wfp91CkZYvtpvgaqGjqrGrByNweHEg). The v1 accounts (`altar-ritual.testnet`, `altar-ritual-demo.testnet`) are abandoned — the claim adds struct fields, so the old state cannot be read by the new code. Live proofs on the v2 demo (claim, FAIL, PASS, Feast) are in `scripts/live-proof-log.md` and `scripts/feast-proof-log.md`.
 
 ## What is not built
 
-No AI Oracle. No principal return (the sacrifice rule stands: offer 100, get 200 back on a pass, lose it on a fail). No testnet deployment, no GitHub push, and no hackathon submission yet.
+No AI Oracle. No principal return (the sacrifice rule stands: offer 100, get 200 back on a pass, lose it on a fail). No demo video, no X post, and no hackathon submission yet.

@@ -1,22 +1,27 @@
-// Live Feast proof for the ALTAR demo instance (altar-ritual-demo.testnet).
-// The streak is already 1 (after the pass round 2990594). This script runs
+// Live Feast proof for the ALTAR demo instance v2 (altar-ritual-v2-demo.testnet).
+// The streak is already 1 (after the pass round in live-proof.mjs). This script runs
 // passing rounds until the streak hits 7, when the Feast Day triggers and
 // the ENTIRE treasury is distributed pro-rata to the Feast-window offerers.
 // Each round the 6 proof wallets offer their full max (read via
 // get_reputation), which is ~500 each, ~3,000 total vs a ~2,500 gate.
+// Appends to the log (the earlier Feast proof in it was on the abandoned v1 demo).
 // Prints only public values and tx hashes - never secret keys.
 import fs from 'node:fs';
 import { connect, keyStores } from '/home/hatch/workspace/merit/node_modules/near-api-js/lib/index.js';
 
-const DEMO = 'altar-ritual-demo.testnet';
+const DEMO = 'altar-ritual-v2-demo.testnet';
 const LOG = '/home/hatch/workspace/altar/scripts/feast-proof-log.md';
 const N = 6;
 const NAMES = Array.from({ length: N }, (_, i) => `altar-proof${i + 1}.testnet`);
 const ONE_YOCTO = 1n;
 const GAS = 300000000000000n; // 300 TGas
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const logLines = [];
-function log(s) { logLines.push(s); console.log(s); }
+// Log lines are appended to the log file as they happen, so progress
+// survives a runtime restart.
+function log(s) {
+  console.log(s);
+  fs.appendFileSync(LOG, `- ${s}\n`);
+}
 
 const keyStore = new keyStores.UnencryptedFileSystemKeyStore('/home/hatch/.near-credentials');
 const near = await connect({
@@ -35,6 +40,7 @@ async function getStreak() {
 }
 
 let streak = await getStreak();
+fs.appendFileSync(LOG, `\n## Feast proof — v2 demo (${new Date().toISOString()})\n\nRan on ${DEMO} (600s rounds). The earlier Feast proof above was on the abandoned v1 demo contract altar-ritual-demo.testnet.\n\n`);
 log(`starting streak: ${streak}`);
 let rounds = 0;
 while (streak < 7 && rounds < 10) {
@@ -80,5 +86,4 @@ for (const id of NAMES) {
   const b = await deployer.viewFunction({ contractId: DEMO, methodName: 'ft_balance_of', args: { account_id: id } });
   log(`final balance ${id}: ${b}`);
 }
-fs.writeFileSync(LOG, `# ALTAR Feast proof log\n\nRan ${new Date().toISOString()} on ${DEMO} (600s rounds).\n\n` + logLines.map((l) => `- ${l}`).join('\n') + '\n');
 log('FEAST PROOF DONE');

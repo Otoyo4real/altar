@@ -21,7 +21,15 @@
 //! 0.25 / 1):
 //! - Genesis: 1,000,000 ALTAR (18 decimals), minted to the deployer at
 //!   init for distribution. No owner, no pause, no setters, no mint
-//!   after genesis except through the Offering below.
+//!   after genesis except through the Offering below and the testnet
+//!   faucet (claim: exactly 100 ALTAR once per wallet, 100,000 total).
+//! - Faucet (testnet only): any wallet calls `claim()` once and receives
+//!   exactly 100 ALTAR, minted in the same call (the caller is
+//!   registered on the token by the claim, so a brand-new wallet can
+//!   claim and immediately offer). The faucet stops at 100,000 ALTAR
+//!   total (1,000 claims). A fresh wallet's offer cap is floored at the
+//!   10 ALTAR minimum, so 100 is enough to offer and grow via passes.
+//!   `get_claimed(account)` tells the site whether a wallet claimed.
 //! - Offer: once per wallet per round, min 10 ALTAR, max the smaller of
 //!   5% of the caller's own balance and 0.05% of circulating supply at
 //!   round start, scaled by the caller's reputation factor (see below).
@@ -83,7 +91,7 @@ use near_contract_standards::storage_management::{
 };
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::store::{LookupMap, Vector};
+use near_sdk::store::{LookupMap, LookupSet, Vector};
 use near_sdk::{
     env, near, AccountId, NearToken, PanicOnDefault, PromiseOrValue,
 };
@@ -111,6 +119,10 @@ pub const MAX_OFFER_SUPPLY_BP: u16 = 5;
 pub const TREASURY_SHARE_BP: u16 = 2500;
 /// Feast Day every 7th consecutive pass.
 pub const FEAST_EVERY: u8 = 7;
+/// The faucet: exactly 100 ALTAR per claim, once per wallet.
+pub const CLAIM_AMOUNT: u128 = 100_000_000_000_000_000_000;
+/// The faucet stops at 100,000 ALTAR total (1,000 claims of 100).
+pub const CLAIM_CAP_TOTAL: u128 = 100_000_000_000_000_000_000_000;
 /// Streak multipliers in basis points: streak 0-2, 3-6, 7+.
 pub const MULTIPLIERS_BP: [u16; 3] = [22500, 25000, 27500];
 /// Streak thresholds at which the multiplier rises.
@@ -282,6 +294,12 @@ pub struct Params {
     pub multiplier_streaks: Vec<u64>,
     pub max_offer_supply_bp: u16,
     pub reputation_rounds: u64,
+    /// The faucet: exactly this much ALTAR per claim, once per wallet.
+    pub claim_amount: String,
+    /// The faucet total cap: no more claims once total_claimed reaches it.
+    pub claim_cap_total: String,
+    /// ALTAR minted by the faucet so far.
+    pub total_claimed: String,
 }
 
 /// One wallet's reputation, as served by `get_reputation`.
@@ -359,6 +377,11 @@ pub struct Contract {
     /// removed when a balance hits 0, so the next inflow starts a fresh
     /// clock. The contract account itself is not tracked.
     first_round: LookupMap<AccountId, u64>,
+    /// Wallets that already claimed the faucet (one claim per wallet).
+    claimed: LookupSet<AccountId>,
+    /// Total ALTAR minted by the faucet so far (capped at
+    /// CLAIM_CAP_TOTAL).
+    total_claimed: u128,
 }
 
 #[near]
@@ -427,6 +450,8 @@ impl Contract {
             streak_offered: LookupMap::new(b"o"),
             streak_order: Vector::new(b"w"),
             first_round: LookupMap::new(b"f"),
+            claimed: LookupSet::new(b"c"),
+            total_claimed: 0,
         };
         // Genesis distribution: the deployer's reputation clock starts now.
         this.note_positive_balance(&deployer);
@@ -567,6 +592,36 @@ impl Contract {
         state.offers.push(OfferEntry { offerer: offerer.clone(), amount });
         state.last_offerer = Some(offerer);
         self.rounds.insert(round_id, state);
+    }
+
+    // -- the faucet (testnet only) --------------------------------------
+
+    /// Claim the faucet: exactly 100 test ALTAR, once per wallet. The
+    /// caller is registered on the token and minted in the same call, so
+    /// a brand-new wallet can claim and immediately offer. The faucet
+    /// stops at 100,000 ALTAR total (1,000 claims). The contract covers
+    /// the storage cost of the registration from its own balance.
+    /// Attached deposit: 1 yoctoNEAR.
+    #[payable]
+    pub fn claim(&mut self) {
+        self.require_one_yocto();
+        let caller = env::predecessor_account_id();
+        assert!(
+            !self.claimed.contains(&caller),
+            "already claimed: one claim per wallet"
+        );
+        assert!(
+            self.total_claimed + CLAIM_AMOUNT <= CLAIM_CAP_TOTAL,
+            "faucet empty: the 100,000 ALTAR claim cap is reached"
+        );
+        if self.token.storage_balance_of(caller.clone()).is_none() {
+            self.token.internal_register_account(&caller);
+        }
+        self.token.internal_deposit(&caller, CLAIM_AMOUNT);
+        self.claimed.insert(caller.clone());
+        self.total_claimed += CLAIM_AMOUNT;
+        // A fresh wallet's reputation clock starts in this round.
+        self.note_positive_balance(&caller);
     }
 
     // -- the Answer -------------------------------------------------------
@@ -774,6 +829,9 @@ impl Contract {
             multiplier_streaks: MULTIPLIER_STREAKS.to_vec(),
             max_offer_supply_bp: MAX_OFFER_SUPPLY_BP,
             reputation_rounds: self.reputation_rounds,
+            claim_amount: CLAIM_AMOUNT.to_string(),
+            claim_cap_total: CLAIM_CAP_TOTAL.to_string(),
+            total_claimed: self.total_claimed.to_string(),
         }
     }
 
@@ -838,6 +896,12 @@ impl Contract {
                 .max_offer_for(&account_id, balance, circulating)
                 .to_string(),
         }
+    }
+
+    /// Whether `account_id` already claimed the faucet (one claim per
+    /// wallet). The site uses this to disable the claim button.
+    pub fn get_claimed(&self, account_id: AccountId) -> bool {
+        self.claimed.contains(&account_id)
     }
 
     /// The Altar's share: the treasury balance, in smallest units.
@@ -1107,6 +1171,12 @@ mod tests {
             .parse()
             .unwrap();
         c.offer(U128(cap));
+    }
+
+    /// Claim the faucet as `who` in demo `round`.
+    fn claim_as(c: &mut Contract, who: &str, round: u64) {
+        set_ctx(who, 1, round_start(round));
+        c.claim();
     }
 
     /// Settle demo `round` (call in the next round); returns its record.
@@ -1815,5 +1885,82 @@ mod tests {
         let hist = c.get_round_history(10);
         assert_eq!(hist.len(), 1);
         assert_eq!(hist[0].round_id, init_round);
+    }
+
+    // -- faucet (claim) ----------------------------------------------------
+
+    #[test]
+    fn claim_mints_100_to_fresh_wallet() {
+        let mut c = setup();
+        // Alice has never been registered on the token.
+        assert!(!c.get_claimed(acc(ALICE)));
+        claim_as(&mut c, ALICE, 0);
+        assert_eq!(balance(&c, ALICE), 100 * ONE);
+        assert!(c.get_claimed(acc(ALICE)));
+        assert_eq!(c.total_claimed, 100 * ONE);
+        assert_eq!(supply(&c), GENESIS_SUPPLY + 100 * ONE);
+        // The claim registered her on the token and started her
+        // reputation clock in round 0.
+        assert!(c.token.storage_balance_of(acc(ALICE)).is_some());
+        set_ctx(ALICE, 0, 0);
+        assert_eq!(c.get_reputation(acc(ALICE)).first_round, Some(0));
+        // get_params carries the faucet numbers.
+        let p = c.get_params();
+        assert_eq!(p.claim_amount, (100 * ONE).to_string());
+        assert_eq!(p.claim_cap_total, (100_000 * ONE).to_string());
+        assert_eq!(p.total_claimed, (100 * ONE).to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "already claimed")]
+    fn claim_second_time_panics() {
+        let mut c = setup();
+        claim_as(&mut c, ALICE, 0);
+        claim_as(&mut c, ALICE, 0);
+    }
+
+    #[test]
+    fn claim_then_offer_works() {
+        let mut c = setup();
+        claim_as(&mut c, ALICE, 0);
+        // A fresh wallet's cap is floored at the 10 minimum, so the 100
+        // claim is enough to offer.
+        offer_as(&mut c, ALICE, 10 * ONE, 0);
+        assert_eq!(balance(&c, ALICE), 90 * ONE);
+        assert_eq!(c.vault_balance, 10 * ONE);
+    }
+
+    #[test]
+    fn claim_cap_enforced_at_1000_claims() {
+        let mut c = setup();
+        for i in 0..1000 {
+            let name = format!("c{:04}.testnet", i);
+            claim_as(&mut c, &name, 0);
+        }
+        assert_eq!(c.total_claimed, 100_000 * ONE);
+        assert_eq!(supply(&c), GENESIS_SUPPLY + 100_000 * ONE);
+        // The 1,001st claim fails: the faucet is empty.
+        set_ctx("c1000.testnet", 1, 0);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            c.claim();
+        }));
+        assert!(result.is_err());
+        assert_eq!(c.total_claimed, 100_000 * ONE);
+    }
+
+    #[test]
+    fn claim_on_production_init() {
+        let mut p = setup_prod();
+        set_ctx(ALICE, 1, 0);
+        p.claim();
+        assert_eq!(balance(&p, ALICE), 100 * ONE);
+        assert!(p.get_claimed(acc(ALICE)));
+        assert_eq!(p.total_claimed, 100 * ONE);
+    }
+
+    #[test]
+    fn get_claimed_false_for_unclaimed() {
+        let c = setup();
+        assert!(!c.get_claimed(acc("nobody.testnet")));
     }
 }

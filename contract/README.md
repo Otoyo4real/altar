@@ -11,7 +11,16 @@ share, and wallets' reputation clocks.
 
 - **Genesis:** 1,000,000 ALTAR (18 decimals), minted to the deployer at
   init for distribution. Nothing mints after genesis except through the
-  Offering below.
+  Offering below and the testnet faucet (`claim`).
+- **The faucet (`claim`, testnet only):** any wallet calls `claim()`
+  once and receives exactly 100 ALTAR, minted in the same call — the
+  caller is registered on the token by the claim, so a brand-new wallet
+  can claim and immediately offer. The faucet stops at 100,000 ALTAR
+  total (1,000 claims). A fresh wallet's offer cap is floored at the 10
+  ALTAR minimum, so 100 is enough to offer and grow via passes.
+  `get_claimed({ account_id })` returns whether a wallet claimed.
+  1 yoctoNEAR attached; the contract covers the storage cost of the
+  registration from its own balance.
 - **The Offering (`offer`):** once per wallet per round, min 10 ALTAR.
   Max per wallet per round = `max(10 ALTAR, min(5% of your balance,
   0.05% of circulating supply at round start × reputation factor))`.
@@ -24,7 +33,8 @@ share, and wallets' reputation clocks.
   10 ALTAR minimum — 1 after `reputation_rounds` rounds). A full sale
   (balance hits 0) resets the clock on the next inflow; a partial sale
   does not. Tracked on every inflow path: `ft_transfer` in, mint
-  distribution on a pass, Feast payout, and genesis at init. No
+  distribution on a pass, Feast payout, faucet claim, and genesis at
+  init. No
   wallet's cap ever exceeds 0.05% of circulating supply, so no wallet
   can take more than 2.5% of a pass reward (0.05% / 2%), and the gate
   needs at least 40 wallets at the cap.
@@ -114,11 +124,15 @@ Altar methods:
 
 - `offer({ amount: string })` — U128 string, smallest units.
 - `answer({})` → the settled `RoundRecord`.
+- `claim({})` — testnet faucet: mints exactly 100 ALTAR to the caller,
+  once per wallet, up to 100,000 total. Registers the caller on the
+  token in the same call.
+- `get_claimed({ account_id })` → `true` if the wallet already claimed.
 - `get_params()` → `{ symbol, decimals, genesis_supply,
   round_duration_seconds, min_offer, max_offer_percent,
   pass_offered_percent, min_offerers, treasury_share_bp, feast_every,
   multipliers_bp, multiplier_streaks, max_offer_supply_bp,
-  reputation_rounds }`
+  reputation_rounds, claim_amount, claim_cap_total, total_claimed }`
 - `get_offering()` → current round `{ round_id, round_end (unix
   seconds), total_offered, offerer_count, threshold_amount,
   min_offerers, status: "Open", streak, treasury, last_offerer }`
@@ -140,7 +154,7 @@ are untouched.
 
 ```sh
 export PATH="$HOME/.cargo/bin:$PATH"
-cargo test                                  # unit tests (39)
+cargo test                                  # unit tests (46)
 cargo near build non-reproducible-wasm      # -> target/near/altar.wasm
 ```
 
@@ -157,7 +171,15 @@ mechanic is a prisoner's dilemma by design (the visible progress bar,
 streak and burn are the anti-free-rider design); cold start needs the
 demo-sized init values above.
 
-## Deploy (testnet only — not run yet)
+## Deploy (testnet only)
+
+Deployed v2 (with the claim faucet) 2026-11-11: production
+`altar-ritual-v2.testnet`, demo `altar-ritual-v2-demo.testnet`
+(600s rounds). The v1 accounts (`altar-ritual.testnet`,
+`altar-ritual-demo.testnet`) are abandoned — the claim adds struct
+fields, so the old state cannot be read by the new code. Wasm
+218,708 bytes (SHA-256
+426427c09d4ecb2baa5e2d7ba09dbd246e4366693c2a46a18363603908398211).
 
 ```sh
 near account create-account sponsor-by-faucet-service altar-<you>.testnet autogenerate-new-keypair save-to-legacy-keychain
