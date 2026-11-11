@@ -27,6 +27,7 @@ body, button, input {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   max-width: 680px;
   margin: 0 auto;
@@ -43,6 +44,14 @@ body, button, input {
   font-size: 12px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
+}
+#headerDemoLink {
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 #connectBtn {
   background: transparent;
@@ -81,6 +90,15 @@ main {
   max-width: 560px;
   margin: 28px auto 0;
   line-height: 1.6;
+}
+.art {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid var(--gold-dim);
+  margin: 24px 0 0;
 }
 .notice {
   display: none;
