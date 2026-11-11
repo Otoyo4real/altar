@@ -56,8 +56,17 @@
       <p class="hint">Most you may offer: <span id="myCap">&mdash;</span> ALTAR<span id="myCapNote"></span></p>
       <p class="hint">Your cap: <span id="repCap">&mdash;</span> ALTAR &mdash; grows as you hold</p>
       <p class="hint" id="repRounds">&mdash;</p>
+      <p class="hint" id="quietLine">Connect your wallet to see your quiet tithe.</p>
       <button class="offer" id="offerBtn" type="button">Offer</button>
       <p class="hint">Offered coins leave your wallet at once. On a pass they return with a reward. On a fail they are gone.</p>
+    </div>
+  </section>
+
+  <section aria-label="Your rewards">
+    <h2>Your rewards</h2>
+    <p class="rule">A pass does not pay you at once. Your share waits for you to claim it, one round at a time — and a Feast share waits the same way.</p>
+    <div id="claimsList">
+      <p class="hint">Connect your wallet to see your rewards to claim.</p>
     </div>
   </section>
 
@@ -79,6 +88,7 @@
     <h2>The Oracle</h2>
     <p class="protect">The Oracle is <span class="num" id="oracleAccount">&mdash;</span>, a NEAR AI agent. It runs on NEAR AI, model z-ai/glm-5.3-flash. If NEAR AI cannot be reached, a plain rule decides instead.</p>
     <p class="protect">This round it says <span class="num" id="oraclePrediction">&mdash;</span> and staked <span class="num" id="oracleStake">&mdash;</span> ALTAR.</p>
+    <p class="protect" id="oracleIdentity">&mdash;</p>
     <p class="protect" id="oracleReason">&mdash;</p>
     <p class="protect">If it is right, it gets its 100 ALTAR back plus 10. If it is wrong, its 100 ALTAR is burned. It cannot change the outcome. It cannot mint coins. It cannot touch the treasury.</p>
     <p class="protect">So far: <span class="num" id="oracleCorrect">&mdash;</span> right, <span class="num" id="oracleWrong">&mdash;</span> wrong, <span class="num" id="oracleTotalStaked">&mdash;</span> ALTAR staked in all.</p>
@@ -101,6 +111,13 @@
     <p class="sub">On Feast Day the whole share is given to the offerers of the week, shared in proportion to what each offered.</p>
   </section>
 
+  <section aria-label="The quiet tithe">
+    <h2>The quiet tithe</h2>
+    <p class="protect">The altar asks every day. If you do not offer for <span id="quietGrace">seven days</span>, it takes <span id="quietRate">1%</span> of your coins for each quiet <span id="quietUnit">day</span> after that, and gives it to the Altar&rsquo;s share.</p>
+    <p class="protect">Offer again and the count starts over. No single sweep takes more than half your coins. The Oracle and the altar itself are never charged.</p>
+    <p class="protect">The quiet tithe has fed <span class="num" id="quietTotal">&mdash;</span> ALTAR to the Altar&rsquo;s share so far.</p>
+  </section>
+
   <section aria-label="The Last Offering">
     <h2>The Last Offering</h2>
     <p class="big" id="lastOfferer">No offering yet</p>
@@ -111,10 +128,10 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Round</th><th>Outcome</th><th class="num">Offered</th><th class="num">Offerers</th><th>Last Offering</th></tr>
+          <tr><th>Round</th><th>Outcome</th><th class="num">Offered</th><th class="num">Offerers</th><th class="num">Minted</th><th class="num">Burned</th><th class="num">Feast payout</th><th class="num">Oracle burned</th><th>Last Offering</th></tr>
         </thead>
         <tbody id="historyBody">
-          <tr><td colspan="5" class="empty">No past rounds yet.</td></tr>
+          <tr><td colspan="9" class="empty">No past rounds yet.</td></tr>
         </tbody>
       </table>
     </div>

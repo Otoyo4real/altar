@@ -33,6 +33,7 @@
   var reputationNow = null;
   var claimedNow = null;
   var oracleNow = null;
+  var quietNow = null;
   var roundNow = null;
   var walletAccountId = null;
 
@@ -233,6 +234,89 @@
       rounds.textContent = "Held for " + held + " of " + total + " rounds";
     }
   }
+  // ---- The quiet tithe ----
+  // The rule numbers come from live get_params, so they are correct on
+  // both contracts: the grace in rounds (7 production, 1 demo) and the
+  // rate in basis points (100 = 1%). On production a round is a day,
+  // so the rule reads in days; on the demo a round is 10 minutes, so
+  // it reads in rounds.
+  function quietGraceRoundsNow() {
+    try {
+      if (paramsNow && paramsNow.quiet_grace_rounds != null) return Number(paramsNow.quiet_grace_rounds);
+    } catch (_) { /* fall through */ }
+    return 7;
+  }
+  function quietRateBpNow() {
+    try {
+      if (paramsNow && paramsNow.quiet_rate_bp != null) return Number(paramsNow.quiet_rate_bp);
+    } catch (_) { /* fall through */ }
+    return 100;
+  }
+  function quietRateText() {
+    var bp = quietRateBpNow();
+    if (!isFinite(bp) || bp <= 0) bp = 100;
+    var pct = bp / 100;
+    return (pct % 1 === 0 ? String(pct) : pct.toFixed(2).replace(/0$/, "")) + "%";
+  }
+  function quietIsDaily() {
+    try {
+      if (paramsNow && paramsNow.round_duration_seconds != null) return Number(paramsNow.round_duration_seconds) === 86400;
+    } catch (_) { /* fall through */ }
+    return true;
+  }
+  function quietUnit(n) {
+    var daily = quietIsDaily();
+    if (n === 1) return daily ? "day" : "round";
+    return daily ? "days" : "rounds";
+  }
+  function quietGraceText() {
+    var g = quietGraceRoundsNow();
+    return numberToWords(g) + " " + quietUnit(g);
+  }
+  // Fill the quiet tithe rule from the live params, and the total the
+  // tithe has fed to the Altar's share so far.
+  function renderQuietRule() {
+    setText("quietGrace", quietGraceText());
+    setText("quietRate", quietRateText());
+    setText("quietUnit", quietUnit(1));
+    var total = null;
+    try {
+      if (paramsNow && paramsNow.quiet_total_collected != null) total = paramsNow.quiet_total_collected;
+    } catch (_) { total = null; }
+    setText("quietTotal", total === null ? DASH : formatAmount(total));
+  }
+  // The connected wallet's own quiet position, from get_quiet.
+  function renderQuietLine() {
+    var n = el("quietLine");
+    if (!n) return;
+    if (!walletAccountId) { n.textContent = "Connect your wallet to see your quiet tithe."; return; }
+    if (!quietNow) { n.textContent = "Your quiet tithe could not be loaded. Check your connection and reload."; return; }
+    if (quietNow.exempt) { n.textContent = "The Oracle is never charged the quiet tithe."; return; }
+    if (quietNow.last_offer_round == null) { n.textContent = "You hold no ALTAR yet, so the quiet tithe does not apply."; return; }
+    var quiet = 0;
+    try { quiet = Number(quietNow.quiet_rounds) || 0; } catch (_) { quiet = 0; }
+    var taxable = 0;
+    try { taxable = Number(quietNow.taxable_rounds) || 0; } catch (_) { taxable = 0; }
+    if (quiet === 0) { n.textContent = "You offered in this round. The quiet tithe does not apply."; return; }
+    if (taxable === 0) {
+      n.textContent = "Quiet for " + quiet + " " + quietUnit(quiet) + ". Still inside the grace, nothing is due.";
+      return;
+    }
+    var due = DASH;
+    try { due = formatAmount(quietNow.would_deduct || "0"); } catch (_) { due = DASH; }
+    n.textContent = "Quiet for " + quiet + " " + quietUnit(quiet) + ". The next sweep would take " + due + " ALTAR.";
+  }
+  async function refreshQuiet() {
+    if (!walletAccountId) { quietNow = null; renderQuietLine(); return; }
+    try {
+      var q = await view("get_quiet", { account_id: walletAccountId });
+      quietNow = q || null;
+    } catch (_) {
+      quietNow = null;
+    }
+    renderQuietLine();
+  }
+
   function returnMultiplierText() {
     // Per offerer return: total mint multiplier minus the 0.25 that
     // funds the Altar's share. Streak tiers come from get_params.
@@ -338,6 +422,7 @@
     refreshWalletBtn();
     if (walletAccountId) refreshBalance();
     if (walletAccountId) refreshReputation();
+    if (walletAccountId) refreshQuiet();
     refreshClaim();
   }
   async function disconnectWallet() {
@@ -351,8 +436,10 @@
     balanceNow = null;
     reputationNow = null;
     claimedNow = null;
+    quietNow = null;
     renderClaim();
     renderReputation();
+    renderQuietLine();
     setText("myBalance", DASH);
     setText("myCap", DASH);
     setText("myCapNote", "");
@@ -376,6 +463,7 @@
       refreshBalance();
       refreshReputation();
       refreshClaim();
+      refreshQuiet();
     } catch (e) { pageStatus("Wallet error: " + String(e && e.message ? e.message : e).slice(0, 160)); }
   }
   function walletCall(method, args, depositYocto) {
@@ -502,11 +590,14 @@
     renderHistory();
     updateCapDisplay();
     renderWhaleSection();
+    renderQuietRule();
     renderOracle();
     renderClaim();
+    renderClaims();
     if (walletAccountId) refreshBalance();
     if (walletAccountId) refreshReputation();
     if (walletAccountId) refreshClaim();
+    if (walletAccountId) refreshQuiet();
     tickCountdown();
   }
   async function renderHistory() {
@@ -515,14 +606,14 @@
     var rows = null;
     try { rows = await view("get_round_history", { limit: 10 }); } catch (_) { rows = null; }
     if (rows === null) {
-      body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">Past rounds could not be loaded. Check your connection and reload.</td></tr>";
+      body.innerHTML = "<tr><td colspan=\"9\" class=\"empty\">Past rounds could not be loaded. Check your connection and reload.</td></tr>";
       return;
     }
     if (!rows.length) {
       if (DEMO_MODE) {
-        body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet on the demo altar.</td></tr>";
+        body.innerHTML = "<tr><td colspan=\"9\" class=\"empty\">No past rounds yet on the demo altar.</td></tr>";
       } else {
-        body.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">No past rounds yet on the live altar. Nobody has offered here yet. The FAIL, the PASS and the Feast Day rounds are on the demo altar. <a href=\"demo.html#rounds\">See the demo rounds</a></td></tr>";
+        body.innerHTML = "<tr><td colspan=\"9\" class=\"empty\">No past rounds yet on the live altar. Nobody has offered here yet. The FAIL, the PASS and the Feast Day rounds are on the demo altar. <a href=\"demo.html#rounds\">See the demo rounds</a></td></tr>";
       }
       return;
     }
@@ -532,10 +623,83 @@
         "<td>" + escapeHtml(String(r.status || DASH)) + "</td>" +
         "<td class=\"num\">" + escapeHtml(formatAmount(r.total_offered || "0")) + "</td>" +
         "<td class=\"num\">" + escapeHtml(String(r.offerer_count != null ? r.offerer_count : DASH)) + "</td>" +
+        "<td class=\"num\">" + escapeHtml(formatAmount(r.minted || "0")) + "</td>" +
+        "<td class=\"num\">" + escapeHtml(formatAmount(r.burned || "0")) + "</td>" +
+        "<td class=\"num\">" + escapeHtml(formatAmount(r.feast_paid || "0")) + "</td>" +
+        "<td class=\"num\">" + escapeHtml(formatAmount(r.oracle_burned || "0")) + "</td>" +
         "<td><span class=\"acct\">" + escapeHtml(r.last_offerer ? String(r.last_offerer) : "No offering yet") + "</span></td></tr>";
     });
     body.innerHTML = html;
   }
+
+  // ---- Your rewards (individual claims) ---------------------------
+  // A PASS reward and a Feast share are claimed by each wallet, one
+  // round at a time. This lists what the connected wallet can claim
+  // from the last ten settled rounds, with a Claim button per item.
+  async function renderClaims() {
+    var list = el("claimsList");
+    if (!list) return;
+    if (!walletAccountId) {
+      list.innerHTML = "<p class=\"hint\">Connect your wallet to see your rewards to claim.</p>";
+      return;
+    }
+    var rows = null;
+    try { rows = await view("get_round_history", { limit: 10 }); } catch (_) { rows = null; }
+    if (!rows || !rows.length) {
+      list.innerHTML = "<p class=\"hint\">No past rounds yet, so nothing to claim.</p>";
+      return;
+    }
+    var items = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r.status !== "Passed") continue;
+      var reward = null;
+      try { reward = await view("get_claimable_reward", { account_id: walletAccountId, round_id: r.round_id }); } catch (_) { reward = null; }
+      if (reward && BigInt(String(reward)) > 0n) {
+        items.push({ kind: "reward", round: r.round_id, amount: reward });
+      }
+      if (r.feast_paid && BigInt(String(r.feast_paid)) > 0n) {
+        var feast = null;
+        try { feast = await view("get_claimable_feast", { account_id: walletAccountId, feast_round_id: r.round_id }); } catch (_) { feast = null; }
+        if (feast && BigInt(String(feast)) > 0n) {
+          items.push({ kind: "feast", round: r.round_id, amount: feast });
+        }
+      }
+    }
+    if (!items.length) {
+      list.innerHTML = "<p class=\"hint\">Nothing to claim. Your past rounds either failed or you already claimed them.</p>";
+      return;
+    }
+    var html = "";
+    items.forEach(function (it, idx) {
+      var label = it.kind === "feast"
+        ? "Feast share from round " + it.round
+        : "Reward from round " + it.round;
+      html += "<div class=\"row\"><span class=\"k\">" + escapeHtml(label) + "</span><span class=\"v\">" + escapeHtml(formatAmount(it.amount)) + " ALTAR</span></div>" +
+        "<button class=\"claim\" type=\"button\" data-claim-kind=\"" + it.kind + "\" data-claim-round=\"" + it.round + "\" data-claim-idx=\"" + idx + "\">Claim</button>";
+    });
+    list.innerHTML = html;
+    var btns = list.querySelectorAll("[data-claim-kind]");
+    btns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var kind = btn.getAttribute("data-claim-kind");
+        var round = Number(btn.getAttribute("data-claim-round"));
+        btn.disabled = true;
+        btn.textContent = "Claiming…";
+        var method = kind === "feast" ? "claim_feast" : "claim_reward";
+        var args = kind === "feast" ? { feast_round_id: round } : { round_id: round };
+        walletCall(method, args, 1).then(function () {
+          btn.textContent = "Claimed";
+          refreshAll();
+        }).catch(function (e) {
+          btn.disabled = false;
+          btn.textContent = "Claim";
+          pageStatus("Claim failed: " + String(e && e.message ? e.message : e).slice(0, 160));
+        });
+      });
+    });
+  }
+
   function tickCountdown() {
     var n = el("countdown");
     var btn = el("answerBtn");
@@ -573,9 +737,27 @@
       if (o.prediction) {
         setText("oraclePrediction", o.prediction.prediction || DASH);
         setText("oracleStake", formatAmount(o.prediction.stake || "0"));
+        // The prediction's identity, read from the chain: how it was
+        // made, which model, and the verifiable proof. A NEAR AI
+        // prediction names its model and its chat id; a rule
+        // prediction says so and carries neither.
+        var idEl = el("oracleIdentity");
+        if (idEl) {
+          if (o.prediction.path === "near-ai") {
+            var proof = o.prediction.proof || DASH;
+            var model = o.prediction.model || DASH;
+            idEl.textContent = "This prediction came from NEAR AI (model " + model + "). Its proof is chat " + proof + ".";
+          } else if (o.prediction.path === "rule") {
+            idEl.textContent = "This prediction came from the plain rule, not from NEAR AI.";
+          } else {
+            idEl.textContent = "This prediction's path is not recorded.";
+          }
+        }
       } else {
         setText("oraclePrediction", "nothing yet");
         setText("oracleStake", "0");
+        var idEl2 = el("oracleIdentity");
+        if (idEl2) idEl2.textContent = "No prediction yet this round.";
       }
       setText("oracleCorrect", o.correct != null ? String(o.correct) : DASH);
       setText("oracleWrong", o.wrong != null ? String(o.wrong) : DASH);
@@ -734,6 +916,7 @@
     }
     renderWhaleRule();
     renderWhaleSection();
+    renderQuietRule();
     renderReputation();
     var connectBtn = el("connectBtn");
     if (connectBtn) connectBtn.addEventListener("click", toggleWallet);

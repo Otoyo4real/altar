@@ -16,9 +16,9 @@
 //! - the last offerer of a round is "the Last Offering"
 //!
 //! Rules (all parameters immutable after init; init takes
-//! round_duration_seconds, min_offerers, pass_offered_percent and
-//! reputation_rounds — production 86400 / 40 / 2.0 / 7, demo 600 / 5 /
-//! 0.25 / 1):
+//! round_duration_seconds, min_offerers, pass_offered_percent,
+//! reputation_rounds and quiet_grace_rounds — production 86400 / 40 /
+//! 2.0 / 7 / 7, demo 600 / 5 / 0.25 / 1 / 1):
 //! - Genesis: 1,000,000 ALTAR (18 decimals), minted to the deployer at
 //!   init for distribution. No owner, no pause, no setters, no mint
 //!   after genesis except through the Offering below and the testnet
@@ -32,8 +32,17 @@
 //!   `get_claimed(account)` tells the site whether a wallet claimed.
 //! - The Oracle: one designated agent wallet, set at init and immutable.
 //!   Once per round, before the round ends, it may call
-//!   `oracle_predict(pass)` and stake exactly 100 ALTAR of its own on
-//!   whether the round will pass. The stake is locked by the contract.
+//!   `oracle_predict(pass, path, model, proof)` and stake exactly 100
+//!   ALTAR of its own on whether the round will pass. The stake is
+//!   locked by the contract. The prediction carries its identity
+//!   onchain: `path` is "near-ai" or "rule", and a NEAR AI prediction
+//!   must give `model` (the model that made it) and `proof` (the
+//!   verifiable reference to the inference, the NEAR AI chat id); a
+//!   rule prediction must give neither. The contract refuses a
+//!   near-ai prediction with no proof and a rule prediction that
+//!   claims one. The round record keeps the path, model and proof, so
+//!   which predictions came from NEAR AI and which used the fallback
+//!   rule is checkable from the chain alone, not from a JSON file.
 //!   When the Answer settles the round, the contract checks the
 //!   prediction against the real outcome: if the Oracle was right, it
 //!   gets its stake back plus 10 ALTAR from the Altar's share (the
@@ -46,11 +55,12 @@
 //!   stake does not count toward the pass gate or the offerer count.
 //!   `get_oracle()` serves its current prediction and its record
 //!   (correct, wrong, total staked, total rewarded, total burned).
-//!   The prediction rule the agent runs is a plain public rule, not a
-//!   neural network: predict pass when the offering already covers at
-//!   least 80% of the line and at least 80% of the offerer gate, else
-//!   predict fail. The contract enforcement is the point, not the
-//!   cleverness of the prediction.
+//!   The agent behind the Oracle runs NEAR AI (model
+//!   z-ai/glm-5.3-flash) with a plain public rule as the fallback when
+//!   NEAR AI cannot be reached: predict pass when the offering already
+//!   covers at least 80% of the line and at least 80% of the offerer
+//!   gate, else predict fail. The contract enforcement is the point,
+//!   not the cleverness of the prediction.
 //! - Offer: once per wallet per round, min 10 ALTAR, max the smaller of
 //!   5% of the caller's own balance and 0.05% of circulating supply at
 //!   round start, scaled by the caller's reputation factor (see below).
@@ -73,22 +83,44 @@
 //!       share; the vault is empty at round start, snapshot when the
 //!       first offering of the round arrives), and
 //!   (b) at least `min_offerers` distinct offerers.
+//! - The quiet tithe: a wallet that does not offer for
+//!   `quiet_grace_rounds` rounds (7 production, 1 demo) starts paying
+//!   1% of its balance for each further quiet round, into the Altar's
+//!   share — so quiet holders feed the Feast for those who offer.
+//!   Anyone may call `sweep_quiet(account)` to collect what is due; the
+//!   sweep takes only the rounds since the last sweep (or the last
+//!   offer), never more than half a wallet's balance in one call, and
+//!   never anything from the Oracle or the altar itself. Offering
+//!   again resets the quiet clock. The tithe is what makes daily
+//!   participation matter even when a round fails: showing up is
+//!   cheaper than staying quiet.
 //! - The Answer (`answer`): anyone may call once the block timestamp has
-//!   passed into the next round. It settles the latest ended unsettled
-//!   round (and any earlier unsettled rounds first, in order, so no
-//!   offering is ever stranded in the vault).
+//!   passed into the next round. It settles ended unsettled rounds in
+//!   order, at most ANSWER_BATCH (5) per call, so a long backlog can
+//!   never exceed the transaction gas limit — the caller just calls
+//!   again. `answer_round(round)` settles exactly one round on its
+//!   own. Settling in order means no offering is ever stranded in the
+//!   vault. Settlement itself is constant work: it records the
+//!   outcome and mints, but it never loops through the offerers.
 //!   - PASS: new mint = streak_multiplier x total offered, where the
 //!     multiplier is 2.25x at streak 0-2, 2.5x at streak 3-6, 2.75x at
-//!     streak 7+ (basis points 22500 / 25000 / 27500). Offerers receive
-//!     (multiplier - 0.25)x their offering, pro-rata; the Altar's share
-//!     receives 0.25x. Streak += 1.
+//!     streak 7+ (basis points 22500 / 25000 / 27500). Offerers are
+//!     owed (multiplier - 0.25)x their offering, pro-rata; the Altar's
+//!     share receives 0.25x. The offerers' share is minted into the
+//!     contract and held for individual claims: each offerer calls
+//!     `claim_reward(round)` for its own pro-rata share (one claim
+//!     per wallet per round). Streak += 1.
 //!   - FAIL: all offered coins are burned, no mint, streak resets to 0,
 //!     the Altar's share is untouched.
 //!   - FEAST DAY: when the streak after incrementing is a multiple of 7,
-//!     the ENTIRE Altar's share is distributed pro-rata to the offerers
-//!     of the current Feast window (pro-rata to each offerer's total
-//!     offered across the window's passing rounds), the share resets to
-//!     0, and the window resets. The streak itself keeps counting.
+//!     the ENTIRE Altar's share moves into the claims pool, to be
+//!     claimed individually by the offerers of the current Feast
+//!     window (`claim_feast(feast_round)`, pro-rata to each offerer's
+//!     total offered across the window's passing rounds); the share
+//!     resets to 0, and the window resets. The streak itself keeps
+//!     counting. No distribution is ever pushed to every participant
+//!     in one transaction, so no settlement's gas grows with the
+//!     number of participants.
 //!
 //! ACCOUNTING CORRECTION (vs the research report's worked example):
 //! the offered coins are the sacrifice and are CONSUMED at settlement in
@@ -112,7 +144,7 @@ use near_contract_standards::storage_management::{
 };
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::store::{LookupMap, LookupSet, Vector};
+use near_sdk::store::{LookupMap, LookupSet};
 use near_sdk::{
     env, near, AccountId, NearToken, PanicOnDefault, PromiseOrValue,
 };
@@ -140,6 +172,12 @@ pub const MAX_OFFER_SUPPLY_BP: u16 = 5;
 pub const TREASURY_SHARE_BP: u16 = 2500;
 /// Feast Day every 7th consecutive pass.
 pub const FEAST_EVERY: u8 = 7;
+/// The Answer settles at most this many ended unsettled rounds per
+/// call, so a long backlog can never exceed the transaction gas
+/// limit. One round can always be settled on its own with
+/// `answer_round`, and distributions are individual claims, so no
+/// single call's work grows with the number of participants.
+pub const ANSWER_BATCH: u64 = 5;
 /// The faucet: exactly 100 ALTAR per claim, once per wallet.
 pub const CLAIM_AMOUNT: u128 = 100_000_000_000_000_000_000;
 /// The faucet stops at 100,000 ALTAR total (1,000 claims of 100).
@@ -151,6 +189,9 @@ pub const ORACLE_STAKE: u128 = 100_000_000_000_000_000_000;
 /// the Altar's share (10% of the stake). Capped at what the share
 /// holds; if the share is empty the reward is 0 that round.
 pub const ORACLE_REWARD: u128 = 10_000_000_000_000_000_000;
+/// The quiet tithe: 100 bp = 1% of a quiet wallet's balance per quiet
+/// round past the grace, into the Altar's share.
+pub const QUIET_RATE_BP: u16 = 100;
 /// Streak multipliers in basis points: streak 0-2, 3-6, 7+.
 pub const MULTIPLIERS_BP: [u16; 3] = [22500, 25000, 27500];
 /// Streak thresholds at which the multiplier rises.
@@ -220,28 +261,16 @@ fn mul_div(a: u128, b: u128, c: u128) -> u128 {
     quot
 }
 
-/// Pro-rata split of `total` across `(account, weight)` shares, in the
-/// given order. Every share but the last gets the floored amount; the
-/// last share gets the remainder, so the split is always exact and
-/// nothing is left over (essential for Feast Day, where the Altar's
-/// share must end at exactly 0).
-fn split_pro_rata(total: u128, shares: &[(AccountId, u128)]) -> Vec<(AccountId, u128)> {
-    let weight_total: u128 = shares.iter().map(|(_, w)| *w).sum();
-    if weight_total == 0 || total == 0 {
-        return shares.iter().map(|(a, _)| (a.clone(), 0)).collect();
+/// Pro-rata share for one wallet: `total * weight / weight_total`,
+/// floored. Claims compute their share with this, one wallet at a
+/// time, so the split is exact per wallet and the dust from flooring
+/// (less than one yocto per wallet) stays in the contract's claims
+/// pool rather than being pushed anywhere at settlement.
+fn pro_rata_share(total: u128, weight: u128, weight_total: u128) -> u128 {
+    if weight_total == 0 || total == 0 || weight == 0 {
+        return 0;
     }
-    let mut out: Vec<(AccountId, u128)> = Vec::with_capacity(shares.len());
-    let mut given: u128 = 0;
-    for (i, (account, weight)) in shares.iter().enumerate() {
-        if i + 1 == shares.len() {
-            out.push((account.clone(), total - given));
-        } else {
-            let amt = mul_div(total, *weight, weight_total);
-            given += amt;
-            out.push((account.clone(), amt));
-        }
-    }
-    out
+    mul_div(total, weight, weight_total)
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +326,11 @@ pub struct RoundRecord {
     pub status: String,
     pub last_offerer: Option<AccountId>,
     pub minted: String,
+    /// Total minted for the offerers on a pass (multiplier minus the
+    /// Altar's share), in smallest units. It is held by the contract
+    /// and claimed individually (`claim_reward`); it is not pushed
+    /// to every offerer at settlement. 0 on a fail.
+    pub offerer_total: String,
     pub burned: String,
     pub feast_paid: String,
     pub streak_after: u64,
@@ -312,17 +346,39 @@ pub struct RoundRecord {
     /// Oracle stake burned for a wrong prediction, in smallest units
     /// (0 otherwise).
     pub oracle_burned: String,
+    /// How the Oracle's prediction was made: "near-ai" or "rule"
+    /// (None when the Oracle made no prediction).
+    pub oracle_path: Option<String>,
+    /// The model that made it (NEAR AI only; None otherwise).
+    pub oracle_model: Option<String>,
+    /// The verifiable reference to the inference: the NEAR AI chat
+    /// id (NEAR AI only; None otherwise).
+    pub oracle_proof: Option<String>,
 }
 
 /// One Oracle prediction, stored by round id. The stake is fixed
 /// (ORACLE_STAKE) and is locked in the contract until the round is
-/// settled by the Answer.
+/// settled by the Answer. The prediction carries its identity
+/// onchain: how it was made (`path`: "near-ai" or "rule"), which
+/// model made it (`model`, NEAR AI only), and the verifiable
+/// reference to the inference (`proof`: the NEAR AI chat id, NEAR AI
+/// only). A rule prediction has no model and no proof. This is what
+/// makes the NEAR AI claim checkable from the chain alone, instead
+/// of resting on a JSON file on the website.
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub struct OraclePrediction {
     pub round_id: u64,
     /// true = the Oracle predicted the round would pass.
     pub prediction: bool,
     pub stake: u128,
+    /// How the prediction was made: "near-ai" or "rule".
+    pub path: String,
+    /// The model that made it, e.g. "z-ai/glm-5.3-flash" (NEAR AI
+    /// only; None for the rule).
+    pub model: Option<String>,
+    /// The verifiable reference to the inference: the NEAR AI chat
+    /// id (NEAR AI only; None for the rule).
+    pub proof: Option<String>,
 }
 
 /// The Oracle's current prediction, as served by `get_oracle`.
@@ -332,6 +388,31 @@ pub struct OraclePredictionView {
     pub round_id: u64,
     pub prediction: String,
     pub stake: String,
+    /// How the prediction was made: "near-ai" or "rule".
+    pub path: String,
+    /// The model that made it (NEAR AI only; null for the rule).
+    pub model: Option<String>,
+    /// The verifiable reference to the inference: the NEAR AI chat
+    /// id (NEAR AI only; null for the rule).
+    pub proof: Option<String>,
+}
+
+/// One Feast Day, as stored for claims: the whole Altar's share paid
+/// out on the feast round, split pro-rata over the window of the
+/// seven passing rounds that led to it. The share is claimed
+/// individually per wallet (`claim_feast`), never pushed to every
+/// participant in one transaction.
+#[derive(BorshSerialize, BorshDeserialize, Clone, schemars::JsonSchema, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct FeastRecord {
+    /// The round whose settlement triggered the Feast (the 7th pass).
+    pub feast_round_id: u64,
+    /// The whole Altar's share at Feast time, in smallest units.
+    pub total: String,
+    /// Total offered across the seven window rounds.
+    pub window_total: String,
+    /// The seven window round ids, in order.
+    pub rounds: Vec<u64>,
 }
 
 /// The Oracle, as served by `get_oracle`: the designated agent wallet,
@@ -350,6 +431,32 @@ pub struct OracleView {
     pub stake_amount: String,
     /// The reward for a correct prediction, in smallest units.
     pub reward_amount: String,
+}
+
+/// One wallet's quiet clock: the last round it offered in, and the
+/// last round the quiet tithe was swept for it. The tithe only ever
+/// charges for rounds since the later of the two, past the grace.
+#[derive(BorshSerialize, BorshDeserialize, Clone)]
+pub struct QuietState {
+    pub last_offer_round: u64,
+    pub last_swept_round: u64,
+}
+
+/// One wallet's quiet tithe position, as served by `get_quiet`.
+#[derive(Clone, schemars::JsonSchema, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct QuietView {
+    pub account_id: String,
+    pub last_offer_round: Option<u64>,
+    pub last_swept_round: Option<u64>,
+    /// Rounds since the wallet last offered (0 if it never held any).
+    pub quiet_rounds: u64,
+    /// Quiet rounds past the grace that have not been swept yet.
+    pub taxable_rounds: u64,
+    /// What the next sweep would take now, in smallest units.
+    pub would_deduct: String,
+    /// The Oracle and the altar itself are never charged.
+    pub exempt: bool,
 }
 
 /// The contract's fixed parameters, as served by `get_params`.
@@ -384,6 +491,16 @@ pub struct Params {
     pub oracle_stake: String,
     /// The reward the Oracle earns for a correct prediction.
     pub oracle_reward: String,
+    /// Quiet rounds a wallet may go without offering before the quiet
+    /// tithe starts (production 7, demo 1).
+    pub quiet_grace_rounds: u64,
+    /// The quiet tithe rate in basis points (100 = 1% per quiet round).
+    pub quiet_rate_bp: u16,
+    /// ALTAR ever collected by the quiet tithe into the Altar's share.
+    pub quiet_total_collected: String,
+    /// The Answer settles at most this many ended unsettled rounds
+    /// per call, so a long backlog can never exceed the gas limit.
+    pub answer_batch: u64,
 }
 
 /// One wallet's reputation, as served by `get_reputation`.
@@ -439,8 +556,13 @@ pub struct Contract {
     /// 0.25x pass-mint, spendable only on Feast Day.
     treasury_balance: u128,
     /// ALTAR currently in the vault: offerings at risk in open rounds.
-    /// Invariant: the contract's own FT balance == vault + treasury.
+    /// Invariant: the contract's own FT balance == vault + treasury +
+    /// oracle_locked + pending_claims (rewards and Feast shares minted
+    /// at settlement but not yet claimed by their wallets).
     vault_balance: u128,
+    /// ALTAR minted at settlement for offerers and Feast winners but
+    /// not yet claimed. See `pending_claims` above.
+    pending_claims: u128,
     /// The latest round id settled by the Answer, if any.
     last_settled_round_id: Option<u64>,
     /// The round active when the contract was initialised. Rounds before
@@ -451,11 +573,30 @@ pub struct Contract {
     rounds: LookupMap<u64, RoundState>,
     /// Settled round records, by round id.
     settled: LookupMap<u64, RoundRecord>,
-    /// Cumulative offered per account during the current streak — the
-    /// Feast window. Reset on a fail and after each Feast Day.
-    streak_offered: LookupMap<AccountId, u128>,
-    /// Insertion order of `streak_offered` (deterministic pro-rata split).
-    streak_order: Vector<AccountId>,
+    /// What each wallet offered in each round, by (round id, wallet).
+    /// Written at offer time, so settlement never loops through the
+    /// offerers: a PASS reward and a Feast share are computed lazily
+    /// from this record when the wallet claims them. Entries are
+    /// small and persist after claiming (they are the audit trail of
+    /// who offered what, and the Feast claim reads them after the
+    /// reward claim); they are never written again.
+    round_offers: LookupMap<(u64, AccountId), u128>,
+    /// (round id, wallet) pairs that already claimed their PASS
+    /// reward, so no reward can be claimed twice.
+    reward_claimed: LookupSet<(u64, AccountId)>,
+    /// The round ids of the current streak, in order, since the last
+    /// Feast Day or fail. At most seven entries: a Feast Day clears
+    /// it, and so does a fail. The Feast window is these rounds.
+    streak_rounds: Vec<u64>,
+    /// Total offered across the current streak window (the rounds in
+    /// `streak_rounds`). The Feast Day pays out pro-rata over this
+    /// total; it resets with the window.
+    streak_window_total: u128,
+    /// Feast Days, by the round whose settlement triggered them.
+    feasts: LookupMap<u64, FeastRecord>,
+    /// (feast round id, wallet) pairs that already claimed their
+    /// Feast share, so no Feast share can be claimed twice.
+    feast_claimed: LookupSet<(u64, AccountId)>,
     /// The round in which each wallet first received ALTAR — its
     /// reputation clock. Set when a balance goes from 0 to positive;
     /// removed when a balance hits 0, so the next inflow starts a fresh
@@ -474,7 +615,7 @@ pub struct Contract {
     oracle_predictions: LookupMap<u64, OraclePrediction>,
     /// ALTAR currently locked as Oracle stakes for unsettled rounds.
     /// Invariant: the contract's own FT balance == vault + treasury +
-    /// oracle_locked.
+    /// oracle_locked + pending_claims.
     oracle_locked: u128,
     /// Oracle record: correct predictions, wrong predictions, total
     /// staked, total rewarded, total burned.
@@ -483,6 +624,14 @@ pub struct Contract {
     oracle_total_staked: u128,
     oracle_total_rewarded: u128,
     oracle_total_burned: u128,
+    /// Quiet rounds a wallet may go without offering before the quiet
+    /// tithe starts (production 7, demo 1).
+    quiet_grace_rounds: u64,
+    /// The quiet tithe: per quiet wallet, the last round it offered in
+    /// and the last round the tithe was swept for it.
+    quiet: LookupMap<AccountId, QuietState>,
+    /// ALTAR ever collected by the quiet tithe into the Altar's share.
+    quiet_total_collected: u128,
 }
 
 #[near]
@@ -491,7 +640,8 @@ impl Contract {
     /// deployer (the predecessor at init) for distribution. Init takes
     /// the round length, the breadth gate, the pass gate as a percent
     /// (2.0 production, 0.25 demo), the reputation horizon in rounds
-    /// (7 production, 1 demo), and the designated Oracle wallet; every
+    /// (7 production, 1 demo), the quiet-tithe grace in rounds (7
+    /// production, 1 demo), and the designated Oracle wallet; every
     /// other number is an immutable constant in the code. There is no
     /// owner afterwards: nothing in this contract checks the deployer.
     #[init]
@@ -500,6 +650,7 @@ impl Contract {
         min_offerers: u32,
         pass_offered_percent: f64,
         reputation_rounds: u64,
+        quiet_grace_rounds: u64,
         oracle_account: AccountId,
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
@@ -514,6 +665,7 @@ impl Contract {
         let pass_offered_bp = (pass_offered_percent * 100.0).round() as u16;
         assert!(pass_offered_bp > 0, "pass_offered_percent must be positive");
         assert!(reputation_rounds > 0, "reputation_rounds must be positive");
+        assert!(quiet_grace_rounds > 0, "quiet_grace_rounds must be positive");
         let deployer = env::predecessor_account_id();
         let mut token = FungibleToken::new(b"t");
         token.internal_register_account(&deployer);
@@ -544,13 +696,18 @@ impl Contract {
             streak: 0,
             treasury_balance: 0,
             vault_balance: 0,
+            pending_claims: 0,
             last_settled_round_id: None,
             // The round active at init; the Answer settles from here, not 0.
             init_round: (env::block_timestamp() / 1_000_000_000) / round_duration_seconds,
             rounds: LookupMap::new(b"r"),
             settled: LookupMap::new(b"s"),
-            streak_offered: LookupMap::new(b"o"),
-            streak_order: Vector::new(b"w"),
+            round_offers: LookupMap::new(b"e"),
+            reward_claimed: LookupSet::new(b"u"),
+            streak_rounds: Vec::new(),
+            streak_window_total: 0,
+            feasts: LookupMap::new(b"a"),
+            feast_claimed: LookupSet::new(b"v"),
             first_round: LookupMap::new(b"f"),
             claimed: LookupSet::new(b"c"),
             total_claimed: 0,
@@ -562,6 +719,9 @@ impl Contract {
             oracle_total_staked: 0,
             oracle_total_rewarded: 0,
             oracle_total_burned: 0,
+            quiet_grace_rounds,
+            quiet: LookupMap::new(b"q"),
+            quiet_total_collected: 0,
         };
         // Genesis distribution: the deployer's reputation clock starts now.
         this.note_positive_balance(&deployer);
@@ -622,17 +782,22 @@ impl Contract {
     }
 
     /// After a wallet's balance may have dropped to zero: forget its
-    /// first round, so a later inflow starts a fresh reputation clock.
+    /// first round, so a later inflow starts a fresh reputation clock,
+    /// and forget its quiet clock too, so a later inflow starts that
+    /// fresh as well.
     fn note_zero_balance(&mut self, account: &AccountId) {
         if self.token.ft_balance_of(account.clone()).0 == 0 {
             self.first_round.remove(account);
+            self.quiet.remove(account);
         }
     }
 
     /// After a wallet may have received ALTAR: if it holds a positive
     /// balance but has no first round recorded, its reputation clock
     /// starts in the current round. (The contract account itself is
-    /// never tracked.)
+    /// never tracked.) Its quiet clock starts here too, so a wallet
+    /// that only holds and never offers starts paying the quiet tithe
+    /// after the grace.
     fn note_positive_balance(&mut self, account: &AccountId) {
         if account != &env::current_account_id()
             && self.token.ft_balance_of(account.clone()).0 > 0
@@ -641,6 +806,96 @@ impl Contract {
             let round = self.current_round_id();
             self.first_round.insert(account.clone(), round);
         }
+        self.note_quiet_first_receipt(account);
+    }
+
+    /// The Oracle and the altar itself are never charged the quiet tithe.
+    fn quiet_exempt(&self, account: &AccountId) -> bool {
+        account == &self.oracle_account || account == &env::current_account_id()
+    }
+
+    /// After a wallet may have received ALTAR for the first time: its
+    /// quiet clock starts in the current round, if it has none yet.
+    /// Exempt accounts never get a clock. Receiving more ALTAR does not
+    /// move the clock; only offering does.
+    fn note_quiet_first_receipt(&mut self, account: &AccountId) {
+        if self.quiet_exempt(account) {
+            return;
+        }
+        if self.quiet.get(account).is_none()
+            && self.token.ft_balance_of(account.clone()).0 > 0
+        {
+            let round = self.current_round_id();
+            self.quiet.insert(
+                account.clone(),
+                QuietState {
+                    last_offer_round: round,
+                    last_swept_round: round,
+                },
+            );
+        }
+    }
+
+    /// After a wallet offers: its quiet clock resets to this round, so
+    /// the grace starts over. Offering is the only activity that
+    /// resets the clock. A wallet that offered everything holds
+    /// nothing, so it gets no clock until it receives again — a later
+    /// inflow then starts fresh instead of inheriting the old offer
+    /// round.
+    fn note_quiet_offer(&mut self, account: &AccountId) {
+        if self.quiet_exempt(account) {
+            return;
+        }
+        if self.token.ft_balance_of(account.clone()).0 == 0 {
+            return;
+        }
+        let round = self.current_round_id();
+        self.quiet.insert(
+            account.clone(),
+            QuietState {
+                last_offer_round: round,
+                last_swept_round: round,
+            },
+        );
+    }
+
+    /// Quiet rounds past the grace that have not been swept yet: the
+    /// rounds since the last offer, minus the grace, minus the rounds
+    /// already paid for by an earlier sweep.
+    fn quiet_taxable_rounds(&self, state: &QuietState, now: u64) -> u64 {
+        let accrued = now
+            .saturating_sub(state.last_offer_round)
+            .saturating_sub(self.quiet_grace_rounds);
+        let paid = state
+            .last_swept_round
+            .saturating_sub(state.last_offer_round)
+            .saturating_sub(self.quiet_grace_rounds);
+        accrued.saturating_sub(paid)
+    }
+
+    /// What a sweep would take from `account` right now: 1% of its
+    /// balance per taxable round, capped at half its balance in one
+    /// sweep, so no single sweep can empty a wallet.
+    fn quiet_would_deduct(&self, account: &AccountId) -> u128 {
+        if self.quiet_exempt(account) {
+            return 0;
+        }
+        let Some(state) = self.quiet.get(account) else {
+            return 0;
+        };
+        let balance = self.token.ft_balance_of(account.clone()).0;
+        if balance == 0 {
+            return 0;
+        }
+        let taxable = self.quiet_taxable_rounds(state, self.current_round_id());
+        if taxable == 0 {
+            return 0;
+        }
+        let computed = balance
+            .saturating_mul(taxable as u128)
+            .saturating_mul(QUIET_RATE_BP as u128)
+            / 10_000;
+        std::cmp::min(computed, balance / 2)
     }
 
     fn require_one_yocto(&self) {
@@ -697,11 +952,18 @@ impl Contract {
         self.vault_balance += amount;
         // Offering everything leaves a zero balance: the clock resets.
         self.note_zero_balance(&offerer);
+        // Offering resets the quiet clock: this round counts as active.
+        self.note_quiet_offer(&offerer);
 
         state.total_offered += amount;
         state.offers.push(OfferEntry { offerer: offerer.clone(), amount });
-        state.last_offerer = Some(offerer);
+        state.last_offerer = Some(offerer.clone());
         self.rounds.insert(round_id, state);
+        // The per-wallet offering record, written now so settlement
+        // never has to loop through the offerers: the PASS reward and
+        // any Feast share are computed from this when the wallet
+        // claims them.
+        self.round_offers.insert((round_id, offerer), amount);
     }
 
     // -- the faucet (testnet only) --------------------------------------
@@ -734,6 +996,63 @@ impl Contract {
         self.note_positive_balance(&caller);
     }
 
+    // -- the quiet tithe ----------------------------------------------
+
+    /// Sweep the quiet tithe from one wallet into the Altar's share.
+    /// Anyone may call, for any wallet: the tithe is permissionless to
+    /// collect, like the Answer. It takes 1% of the wallet's balance
+    /// for each quiet round past the grace since the wallet last
+    /// offered (or since its last sweep), never more than half the
+    /// wallet's balance in one call, and nothing at all from the
+    /// Oracle or the altar itself, from a wallet inside its grace, or
+    /// from a wallet that holds nothing. Returns the amount taken, in
+    /// smallest units ("0" when nothing was due). Attached deposit: 1
+    /// yoctoNEAR.
+    #[payable]
+    pub fn sweep_quiet(&mut self, account_id: AccountId) -> U128 {
+        self.require_one_yocto();
+        let current = self.current_round_id();
+        // The Oracle and the altar itself are never charged.
+        if self.quiet_exempt(&account_id) {
+            return U128(0);
+        }
+        let Some(mut state) = self.quiet.get(&account_id).cloned() else {
+            return U128(0);
+        };
+        let balance = self.token.ft_balance_of(account_id.clone()).0;
+        if balance == 0 {
+            self.quiet.remove(&account_id);
+            return U128(0);
+        }
+        let taxable = self.quiet_taxable_rounds(&state, current);
+        if taxable == 0 {
+            return U128(0);
+        }
+        let deduction = self.quiet_would_deduct(&account_id);
+        if deduction == 0 {
+            // Rounding to zero still settles these rounds, so the next
+            // sweep only counts rounds after this one.
+            state.last_swept_round = current;
+            self.quiet.insert(account_id, state);
+            return U128(0);
+        }
+        // The tithe moves from the wallet into the Altar's share: the
+        // contract's own balance rises by the deduction, and the share
+        // rises by the same amount, so the vault + share + locked
+        // invariant holds.
+        let contract_id = env::current_account_id();
+        self.token
+            .internal_transfer(&account_id, &contract_id, deduction, None);
+        self.treasury_balance += deduction;
+        self.quiet_total_collected += deduction;
+        state.last_swept_round = current;
+        self.quiet.insert(account_id.clone(), state);
+        // The cap keeps a positive balance, but stay safe if the
+        // numbers ever change.
+        self.note_zero_balance(&account_id);
+        U128(deduction)
+    }
+
     // -- the Oracle -----------------------------------------------------
 
     /// The Oracle's prediction: the designated agent wallet stakes
@@ -744,14 +1063,51 @@ impl Contract {
     /// the stake does not count toward the pass gate or the offerer
     /// count, and it cannot move the outcome. Attached deposit: 1
     /// yoctoNEAR.
+    ///
+    /// The prediction carries its identity onchain. `path` is how it
+    /// was made: "near-ai" or "rule". A NEAR AI prediction must give
+    /// `model` (the model that made it) and `proof` (the verifiable
+    /// reference to the inference, the NEAR AI chat id); a rule
+    /// prediction must give neither. The contract refuses a
+    /// near-ai prediction with no proof and a rule prediction that
+    /// claims one, so the record cannot be faked after the fact.
     #[payable]
-    pub fn oracle_predict(&mut self, prediction: bool) {
+    pub fn oracle_predict(
+        &mut self,
+        prediction: bool,
+        path: String,
+        model: Option<String>,
+        proof: Option<String>,
+    ) {
         self.require_one_yocto();
         let caller = env::predecessor_account_id();
         assert_eq!(
             caller, self.oracle_account,
             "only the Oracle may predict"
         );
+        assert!(
+            path == "near-ai" || path == "rule",
+            "path must be \"near-ai\" or \"rule\""
+        );
+        if path == "near-ai" {
+            assert!(
+                model.as_ref().map_or(false, |m| !m.is_empty()),
+                "a NEAR AI prediction must name its model"
+            );
+            assert!(
+                proof.as_ref().map_or(false, |p| !p.is_empty()),
+                "a NEAR AI prediction must carry its proof (the chat id)"
+            );
+        } else {
+            assert!(
+                model.is_none(),
+                "a rule prediction has no model"
+            );
+            assert!(
+                proof.is_none(),
+                "a rule prediction has no proof"
+            );
+        }
         let round_id = self.current_round_id();
         assert!(
             self.oracle_predictions.get(&round_id).is_none(),
@@ -769,6 +1125,9 @@ impl Contract {
                 round_id,
                 prediction,
                 stake: ORACLE_STAKE,
+                path,
+                model,
+                proof,
             },
         );
         self.oracle_locked += ORACLE_STAKE;
@@ -777,9 +1136,15 @@ impl Contract {
 
     // -- the Answer -------------------------------------------------------
 
-    /// The Answer: settle the latest ended unsettled round. Anyone may
-    /// call, once the block timestamp has passed into the next round.
-    /// Returns the settled round record. Attached deposit: 1 yoctoNEAR.
+    /// The Answer: settle ended unsettled rounds, in order, at most
+    /// `ANSWER_BATCH` per call, returning the latest settled record.
+    /// Anyone may call, once the block timestamp has passed into the
+    /// next round. Settling in order means no offering is ever
+    /// stranded in the vault if the Answer is late, and the batch cap
+    /// means a long backlog can never exceed the transaction gas
+    /// limit: the caller just calls again. A single round can always
+    /// be settled on its own with `answer_round`. Attached deposit: 1
+    /// yoctoNEAR.
     #[payable]
     pub fn answer(&mut self) -> RoundRecord {
         self.require_one_yocto();
@@ -794,21 +1159,52 @@ impl Contract {
             "no round to answer"
         );
 
-        // Settle every ended unsettled round in order (normally exactly
-        // one), returning the latest record. Settling in order means no
-        // offering is ever stranded in the vault if the Answer is late.
-        // Start from the init round, not 0: rounds before deployment never
-        // existed, and settling them all would exceed the gas.
+        // Settle at most ANSWER_BATCH ended unsettled rounds in order,
+        // returning the latest record. Start from the init round, not
+        // 0: rounds before deployment never existed, and settling
+        // them all would exceed the gas.
         let first = last_settled.map_or(self.init_round, |s| s + 1);
         let mut last_record: Option<RoundRecord> = None;
+        let mut settled_count = 0u64;
         for round_id in first..=target {
+            if settled_count >= ANSWER_BATCH {
+                break;
+            }
             let record = self.settle_round(round_id);
             last_record = Some(record);
+            settled_count += 1;
         }
         last_record.expect("no round to answer")
     }
 
+    /// Settle exactly one round, on its own. The round must be the
+    /// next unsettled one — rounds settle in order, because the streak
+    /// and the Feast window depend on it — and it must already have
+    /// ended. Attached deposit: 1 yoctoNEAR.
+    #[payable]
+    pub fn answer_round(&mut self, round_id: u64) -> RoundRecord {
+        self.require_one_yocto();
+        let current = self.current_round_id();
+        let expected = self
+            .last_settled_round_id
+            .map_or(self.init_round, |s| s + 1);
+        assert!(
+            round_id == expected,
+            "rounds settle in order: the next round to answer is the one after the last settled"
+        );
+        assert!(round_id < current, "round has not ended yet");
+        self.settle_round(round_id)
+    }
+
     /// Settle one ended round, on its own gates. Called by `answer`.
+    /// Settle one ended round, on its own gates. Called by `answer`
+    /// and `answer_round`. Settlement is constant work: it records
+    /// the outcome and mints, but it never loops through the
+    /// offerers. A PASS reward is claimed individually by each
+    /// offerer (`claim_reward`), computed from what that wallet
+    /// offered, and a Feast share is claimed individually too
+    /// (`claim_feast`). So no settlement's gas grows with the number
+    /// of participants, and a large round can always be settled.
     fn settle_round(&mut self, round_id: u64) -> RoundRecord {
         let state = self
             .rounds
@@ -825,6 +1221,7 @@ impl Contract {
         let passed = gate_a && gate_b;
 
         let mut minted: u128 = 0;
+        let mut offerer_total: u128 = 0;
         let mut feast_paid: u128 = 0;
 
         if passed {
@@ -833,7 +1230,7 @@ impl Contract {
             let total_mint = total_offered * (mult_bp as u128) / 10_000;
             // The Altar's share: 0.25x total offered (floored).
             let treasury_share = total_offered * (TREASURY_SHARE_BP as u128) / 10_000;
-            let offerer_total = total_mint - treasury_share;
+            offerer_total = total_mint - treasury_share;
             minted = total_mint;
 
             // The sacrifice is CONSUMED: the vaulted coins are burned.
@@ -847,20 +1244,14 @@ impl Contract {
                 self.vault_balance -= total_offered;
             }
 
-            // Offerers receive (multiplier - 0.25)x, pro-rata to what
-            // each offered; the last offerer takes any remainder dust.
-            let shares: Vec<(AccountId, u128)> = state
-                .offers
-                .iter()
-                .map(|o| (o.offerer.clone(), o.amount))
-                .collect();
-            for (account, amt) in split_pro_rata(offerer_total, &shares) {
-                if amt > 0 {
-                    self.token.internal_deposit(&account, amt);
-                    // A wallet that had sold out and is receiving again
-                    // starts a fresh reputation clock.
-                    self.note_positive_balance(&account);
-                }
+            // The offerers' share is minted into the contract and held
+            // for individual claims. Nothing is pushed to the offerers
+            // here: each one claims its pro-rata share with
+            // `claim_reward`, so settlement never loops through them.
+            if offerer_total > 0 {
+                let contract_id = env::current_account_id();
+                self.token.internal_deposit(&contract_id, offerer_total);
+                self.pending_claims += offerer_total;
             }
 
             // The Altar's share is minted into the contract's own balance.
@@ -871,35 +1262,32 @@ impl Contract {
             }
 
             self.streak += 1;
-
-            // Grow the Feast window with this round's offerings.
-            for offer in &state.offers {
-                self.add_to_streak_offered(&offer.offerer, offer.amount);
-            }
+            self.streak_rounds.push(round_id);
+            self.streak_window_total += total_offered;
 
             // FEAST DAY: on every 7th consecutive pass, the ENTIRE
             // Altar's share goes to the offerers of the Feast window,
-            // pro-rata to their total offered across the window's passing
-            // rounds. The streak keeps counting; only the window resets.
+            // pro-rata to their total offered across the window's
+            // passing rounds. The share moves from the Altar's share
+            // into the claims pool, and each wallet claims its own
+            // share with `claim_feast` — the settlement never loops
+            // through the window. The streak keeps counting; only the
+            // window resets.
             if self.streak % (FEAST_EVERY as u64) == 0 {
                 feast_paid = self.treasury_balance;
                 if feast_paid > 0 {
-                    let window: Vec<(AccountId, u128)> = self.streak_ordered();
-                    let contract_id = env::current_account_id();
-                    for (account, amt) in split_pro_rata(feast_paid, &window) {
-                        if amt > 0 {
-                            self.token.internal_transfer(
-                                &contract_id,
-                                &account,
-                                amt,
-                                None,
-                            );
-                            self.note_positive_balance(&account);
-                        }
-                    }
+                    let feast = FeastRecord {
+                        feast_round_id: round_id,
+                        total: feast_paid.to_string(),
+                        window_total: self.streak_window_total.to_string(),
+                        rounds: self.streak_rounds.clone(),
+                    };
+                    self.feasts.insert(round_id, feast);
+                    self.pending_claims += feast_paid;
                 }
                 self.treasury_balance = 0;
-                self.clear_streak_offered();
+                self.streak_rounds.clear();
+                self.streak_window_total = 0;
             }
         } else {
             // FAIL: all offered coins are burned, no mint, streak resets
@@ -910,14 +1298,19 @@ impl Contract {
                 self.vault_balance -= total_offered;
             }
             self.streak = 0;
-            self.clear_streak_offered();
+            self.streak_rounds.clear();
+            self.streak_window_total = 0;
         }
 
         // The Oracle: resolve any prediction for this round against the
         // real outcome. A prediction for a different round is left
         // alone; the Answer settles rounds in order, so each prediction
-        // is resolved when its own round is settled.
+        // is resolved when its own round is settled. The record keeps
+        // the prediction's identity (path, model, proof) onchain.
         let mut oracle_prediction: Option<String> = None;
+        let mut oracle_path: Option<String> = None;
+        let mut oracle_model: Option<String> = None;
+        let mut oracle_proof: Option<String> = None;
         let mut oracle_outcome = "none".to_string();
         let mut oracle_rewarded: u128 = 0;
         let mut oracle_burned: u128 = 0;
@@ -927,6 +1320,9 @@ impl Contract {
             } else {
                 "Fail".to_string()
             });
+            oracle_path = Some(pred.path.clone());
+            oracle_model = pred.model.clone();
+            oracle_proof = pred.proof.clone();
             self.oracle_predictions.remove(&round_id);
             self.oracle_locked -= pred.stake;
             let contract_id = env::current_account_id();
@@ -934,7 +1330,8 @@ impl Contract {
                 // Correct: the stake comes back plus 10 ALTAR from the
                 // Altar's share, capped at what the share holds. If
                 // the share is empty the Oracle gets its stake back
-                // and no reward that round.
+                // and no reward that round. (On a Feast Day the share
+                // was just paid out, so the reward is 0 that round.)
                 let reward = ORACLE_REWARD.min(self.treasury_balance);
                 let back = pred.stake + reward;
                 let oracle_account = self.oracle_account.clone();
@@ -970,6 +1367,7 @@ impl Contract {
             status: if passed { "Passed".to_string() } else { "Failed".to_string() },
             last_offerer,
             minted: minted.to_string(),
+            offerer_total: offerer_total.to_string(),
             burned: total_offered.to_string(),
             feast_paid: feast_paid.to_string(),
             streak_after: self.streak,
@@ -977,6 +1375,9 @@ impl Contract {
             oracle_outcome,
             oracle_rewarded: oracle_rewarded.to_string(),
             oracle_burned: oracle_burned.to_string(),
+            oracle_path,
+            oracle_model,
+            oracle_proof,
         };
         self.rounds.remove(&round_id);
         self.settled.insert(round_id, record.clone());
@@ -984,35 +1385,163 @@ impl Contract {
         record
     }
 
-    /// Add an offering to the current Feast window's cumulative map.
-    fn add_to_streak_offered(&mut self, account: &AccountId, amount: u128) {
-        match self.streak_offered.get(account) {
-            Some(prev) => {
-                let total = *prev + amount;
-                self.streak_offered.insert(account.clone(), total);
-            }
-            None => {
-                self.streak_order.push(account.clone());
-                self.streak_offered.insert(account.clone(), amount);
-            }
-        }
+    // -- claims ---------------------------------------------------------
+
+    /// Claim your PASS reward for one settled round. The reward is
+    /// your pro-rata share of the round's offerer total (the mint
+    /// minus the Altar's share), computed from what you offered in
+    /// that round. One claim per wallet per round; the contract never
+    /// pushes rewards to the offerers at settlement. Attached deposit:
+    /// 1 yoctoNEAR. Returns the amount claimed, in smallest units.
+    #[payable]
+    pub fn claim_reward(&mut self, round_id: u64) -> U128 {
+        self.require_one_yocto();
+        let caller = env::predecessor_account_id();
+        let record = self
+            .settled
+            .get(&round_id)
+            .cloned()
+            .unwrap_or_else(|| env::panic_str("round not settled"));
+        assert!(
+            record.status == "Passed",
+            "only a passed round pays a reward"
+        );
+        assert!(
+            !self.reward_claimed.contains(&(round_id, caller.clone())),
+            "reward already claimed for this round"
+        );
+        let offered = self
+            .round_offers
+            .get(&(round_id, caller.clone()))
+            .cloned()
+            .unwrap_or(0);
+        assert!(offered > 0, "you offered nothing in this round");
+        let total_offered: u128 = record.total_offered.parse().unwrap_or(0);
+        let offerer_total: u128 = record.offerer_total.parse().unwrap_or(0);
+        let share = pro_rata_share(offerer_total, offered, total_offered);
+        assert!(share > 0, "nothing to claim");
+        self.reward_claimed.insert((round_id, caller.clone()));
+        self.pending_claims = self.pending_claims.saturating_sub(share);
+        let contract_id = env::current_account_id();
+        self.token
+            .internal_transfer(&contract_id, &caller, share, None);
+        self.note_positive_balance(&caller);
+        U128(share)
     }
 
-    /// The Feast window as an ordered (account, cumulative offered) list.
-    fn streak_ordered(&self) -> Vec<(AccountId, u128)> {
-        self.streak_order
-            .iter()
-            .map(|a| (a.clone(), *self.streak_offered.get(a).unwrap_or(&0)))
-            .collect()
+    /// Claim your Feast share for one Feast Day. The share is your
+    /// pro-rata part of the whole Altar's share paid out that day,
+    /// over your total offered across the Feast's seven window
+    /// rounds. One claim per wallet per Feast; the contract never
+    /// pushes Feast shares to the window at settlement. Attached
+    /// deposit: 1 yoctoNEAR. Returns the amount claimed, in smallest
+    /// units.
+    #[payable]
+    pub fn claim_feast(&mut self, feast_round_id: u64) -> U128 {
+        self.require_one_yocto();
+        let caller = env::predecessor_account_id();
+        let feast = self
+            .feasts
+            .get(&feast_round_id)
+            .cloned()
+            .unwrap_or_else(|| env::panic_str("no Feast for this round"));
+        assert!(
+            !self
+                .feast_claimed
+                .contains(&(feast_round_id, caller.clone())),
+            "Feast share already claimed"
+        );
+        let total: u128 = feast.total.parse().unwrap_or(0);
+        let window_total: u128 = feast.window_total.parse().unwrap_or(0);
+        let mut offered_in_window: u128 = 0;
+        for r in &feast.rounds {
+            offered_in_window += self
+                .round_offers
+                .get(&(*r, caller.clone()))
+                .cloned()
+                .unwrap_or(0);
+        }
+        assert!(
+            offered_in_window > 0,
+            "you offered nothing in this Feast window"
+        );
+        let share = pro_rata_share(total, offered_in_window, window_total);
+        assert!(share > 0, "nothing to claim");
+        self.feast_claimed
+            .insert((feast_round_id, caller.clone()));
+        self.pending_claims = self.pending_claims.saturating_sub(share);
+        let contract_id = env::current_account_id();
+        self.token
+            .internal_transfer(&contract_id, &caller, share, None);
+        self.note_positive_balance(&caller);
+        U128(share)
     }
 
-    /// Reset the Feast window (on a fail, and after each Feast Day).
-    fn clear_streak_offered(&mut self) {
-        let order: Vec<AccountId> = self.streak_order.iter().cloned().collect();
-        for account in order {
-            self.streak_offered.remove(&account);
+    /// The PASS reward a wallet can claim for one settled round, in
+    /// smallest units (0 when the round failed, the wallet offered
+    /// nothing, or the reward is already claimed).
+    pub fn get_claimable_reward(&self, account_id: AccountId, round_id: u64) -> U128 {
+        let Some(record) = self.settled.get(&round_id) else {
+            return U128(0);
+        };
+        if record.status != "Passed" {
+            return U128(0);
         }
-        self.streak_order.clear();
+        if self
+            .reward_claimed
+            .contains(&(round_id, account_id.clone()))
+        {
+            return U128(0);
+        }
+        let offered = self
+            .round_offers
+            .get(&(round_id, account_id))
+            .cloned()
+            .unwrap_or(0);
+        if offered == 0 {
+            return U128(0);
+        }
+        let total_offered: u128 = record.total_offered.parse().unwrap_or(0);
+        let offerer_total: u128 = record.offerer_total.parse().unwrap_or(0);
+        U128(pro_rata_share(offerer_total, offered, total_offered))
+    }
+
+    /// The Feast share a wallet can claim for one Feast Day, in
+    /// smallest units (0 when there is no such Feast, the wallet
+    /// offered nothing in the window, or the share is already
+    /// claimed).
+    pub fn get_claimable_feast(&self, account_id: AccountId, feast_round_id: u64) -> U128 {
+        let Some(feast) = self.feasts.get(&feast_round_id) else {
+            return U128(0);
+        };
+        if self
+            .feast_claimed
+            .contains(&(feast_round_id, account_id.clone()))
+        {
+            return U128(0);
+        }
+        let total: u128 = feast.total.parse().unwrap_or(0);
+        let window_total: u128 = feast.window_total.parse().unwrap_or(0);
+        let mut offered_in_window: u128 = 0;
+        for r in &feast.rounds {
+            offered_in_window += self
+                .round_offers
+                .get(&(*r, account_id.clone()))
+                .cloned()
+                .unwrap_or(0);
+        }
+        if offered_in_window == 0 {
+            return U128(0);
+        }
+        U128(pro_rata_share(total, offered_in_window, window_total))
+    }
+
+    /// One Feast Day record. Panics if there is no Feast for the round.
+    pub fn get_feast(&self, feast_round_id: u64) -> FeastRecord {
+        self.feasts
+            .get(&feast_round_id)
+            .cloned()
+            .unwrap_or_else(|| env::panic_str("no Feast for this round"))
     }
 
     // -- views ------------------------------------------------------------
@@ -1040,6 +1569,10 @@ impl Contract {
             oracle_account: self.oracle_account.to_string(),
             oracle_stake: ORACLE_STAKE.to_string(),
             oracle_reward: ORACLE_REWARD.to_string(),
+            quiet_grace_rounds: self.quiet_grace_rounds,
+            quiet_rate_bp: QUIET_RATE_BP,
+            quiet_total_collected: self.quiet_total_collected.to_string(),
+            answer_batch: ANSWER_BATCH,
         }
     }
 
@@ -1056,6 +1589,9 @@ impl Contract {
                     "Fail".to_string()
                 },
                 stake: p.stake.to_string(),
+                path: p.path.clone(),
+                model: p.model.clone(),
+                proof: p.proof.clone(),
             }
         });
         OracleView {
@@ -1138,6 +1674,36 @@ impl Contract {
     /// wallet). The site uses this to disable the claim button.
     pub fn get_claimed(&self, account_id: AccountId) -> bool {
         self.claimed.contains(&account_id)
+    }
+
+    /// One wallet's quiet tithe position: the last round it offered in,
+    /// the last round the tithe was swept for it, how many rounds it
+    /// has been quiet, how many of those are taxable, and what the next
+    /// sweep would take. The site uses this to show a connected wallet
+    /// its own quiet clock.
+    pub fn get_quiet(&self, account_id: AccountId) -> QuietView {
+        let current = self.current_round_id();
+        let exempt = self.quiet_exempt(&account_id);
+        match self.quiet.get(&account_id) {
+            Some(state) => QuietView {
+                account_id: account_id.to_string(),
+                last_offer_round: Some(state.last_offer_round),
+                last_swept_round: Some(state.last_swept_round),
+                quiet_rounds: current.saturating_sub(state.last_offer_round),
+                taxable_rounds: self.quiet_taxable_rounds(state, current),
+                would_deduct: self.quiet_would_deduct(&account_id).to_string(),
+                exempt,
+            },
+            None => QuietView {
+                account_id: account_id.to_string(),
+                last_offer_round: None,
+                last_swept_round: None,
+                quiet_rounds: 0,
+                taxable_rounds: 0,
+                would_deduct: "0".to_string(),
+                exempt,
+            },
+        }
     }
 
     /// The Altar's share: the treasury balance, in smallest units.
@@ -1248,6 +1814,7 @@ impl StorageManagement for Contract {
         let unregistered = self.token.internal_storage_unregister(force).is_some();
         if unregistered {
             self.first_round.remove(&account_id);
+            self.quiet.remove(&account_id);
         }
         unregistered
     }
@@ -1323,27 +1890,31 @@ mod tests {
         round * PROD_DURATION * 1_000_000_000
     }
 
-    /// Demo deployment: 600s rounds, 5 offerers, 0.25% gate, rep 1.
+    /// Demo deployment: 600s rounds, 5 offerers, 0.25% gate, rep 1,
+    /// quiet grace 1 round.
     fn setup() -> Contract {
         set_ctx(DEPLOYER, 0, 0);
-        Contract::new(DURATION, 5, 0.25, 1, acc(ORACLE))
+        Contract::new(DURATION, 5, 0.25, 1, 1, acc(ORACLE))
     }
 
-    /// Production deployment: 86400s rounds, 40 offerers, 2% gate, rep 7.
+    /// Production deployment: 86400s rounds, 40 offerers, 2% gate,
+    /// rep 7, quiet grace 7 rounds.
     fn setup_prod() -> Contract {
         set_ctx(DEPLOYER, 0, 0);
-        Contract::new(PROD_DURATION, 40, 2.0, 7, acc(ORACLE))
+        Contract::new(PROD_DURATION, 40, 2.0, 7, 7, acc(ORACLE))
     }
 
     /// Give `account` `amount` ALTAR from the deployer's genesis balance,
     /// as a distribution transfer would: the recipient's reputation
-    /// clock starts in the current round (round 0 in all tests here).
+    /// clock starts in the current round (round 0 in all tests here),
+    /// and so does its quiet clock.
     fn seed(c: &mut Contract, account: &str, amount: u128) {
         c.token.internal_register_account(&acc(account));
         c.token
             .internal_transfer(&acc(DEPLOYER), &acc(account), amount, None);
         let round = c.current_round_id();
         c.first_round.insert(acc(account), round);
+        c.note_quiet_first_receipt(&acc(account));
     }
 
     fn seed_five(c: &mut Contract, amount: u128) {
@@ -1416,6 +1987,35 @@ mod tests {
         c.claim();
     }
 
+    /// Claim the PASS reward for `round` as each wallet in `wallets`
+    /// (call in the round after settlement). Rewards are individual
+    /// claims now, not a push at settlement, so tests that check
+    /// balances after a pass must claim first.
+    fn claim_rewards(c: &mut Contract, wallets: &[&str], round: u64) {
+        for a in wallets {
+            set_ctx(a, 1, round_start(round + 1));
+            c.claim_reward(round);
+        }
+    }
+
+    /// Claim the Feast share for `feast_round` as each wallet in
+    /// `wallets` (call after the Feast round settles).
+    fn claim_feast_shares(c: &mut Contract, wallets: &[&str], feast_round: u64) {
+        for a in wallets {
+            set_ctx(a, 1, round_start(feast_round + 1));
+            c.claim_feast(feast_round);
+        }
+    }
+
+    /// Production version of `claim_rewards` (wallets are owned
+    /// Strings, rounds are a day long).
+    fn claim_rewards_prod(c: &mut Contract, wallets: &[String], round: u64) {
+        for a in wallets {
+            set_ctx(a, 1, round_start_prod(round + 1));
+            c.claim_reward(round);
+        }
+    }
+
     /// Settle demo `round` (call in the next round); returns its record.
     fn answer_as(c: &mut Contract, round: u64) -> RoundRecord {
         set_ctx(ALICE, 1, round_start(round + 1));
@@ -1465,6 +2065,9 @@ mod tests {
         assert_eq!(p.multiplier_streaks, vec![0, 3, 7]);
         assert_eq!(p.max_offer_supply_bp, 5);
         assert_eq!(p.reputation_rounds, 1);
+        assert_eq!(p.quiet_grace_rounds, 1);
+        assert_eq!(p.quiet_rate_bp, 100);
+        assert_eq!(p.quiet_total_collected, "0");
         assert_eq!(supply(&c), GENESIS_SUPPLY);
         assert_eq!(balance(&c, DEPLOYER), GENESIS_SUPPLY);
     }
@@ -1478,6 +2081,9 @@ mod tests {
         assert_eq!(p.pass_offered_percent, 2.0);
         assert_eq!(p.max_offer_supply_bp, 5);
         assert_eq!(p.reputation_rounds, 7);
+        assert_eq!(p.quiet_grace_rounds, 7);
+        assert_eq!(p.quiet_rate_bp, 100);
+        assert_eq!(p.quiet_total_collected, "0");
     }
 
     #[test]
@@ -1583,11 +2189,13 @@ mod tests {
         assert_eq!(record.total_offered, (2_500 * ONE).to_string());
         assert_eq!(record.offerer_count, 5);
         assert_eq!(record.minted, (5_625 * ONE).to_string());
+        assert_eq!(record.offerer_total, (5_000 * ONE).to_string());
         assert_eq!(record.burned, (2_500 * ONE).to_string());
         assert_eq!(record.feast_paid, "0");
         assert_eq!(record.streak_after, 1);
         assert_eq!(record.last_offerer, Some(acc(ERIN)));
         assert_eq!(supply(&c), 1_003_125 * ONE);
+        claim_rewards(&mut c, &FIVE, 1);
         for a in FIVE {
             assert_eq!(balance(&c, a), 100_500 * ONE, "{a} balance");
         }
@@ -1629,6 +2237,7 @@ mod tests {
         assert_eq!(record.burned, (25_000 * ONE).to_string());
         assert_eq!(record.streak_after, 1);
         assert_eq!(supply(&c), 1_031_250 * ONE);
+        claim_rewards_prod(&mut c, &wallets, 7);
         for w in &wallets {
             // 10,000 - 500 offered + 1,000 back (2x).
             assert_eq!(balance(&c, w), 10_500 * ONE, "{w} balance");
@@ -1761,6 +2370,7 @@ mod tests {
         let r4 = answer_as(&mut c, 4);
         assert_eq!(r4.streak_after, 4);
         assert_eq!(r4.minted, (7_500 * ONE).to_string()); // 2.5 x 3,000
+        claim_rewards(&mut c, &[ALICE], 4);
         assert_eq!(balance(&c, ALICE), before - 500 * ONE + 1_125 * ONE);
         // Rounds 5-7 pass at streak 4-6 (still 2.5x total mint).
         for r in 5..8 {
@@ -1776,6 +2386,7 @@ mod tests {
         let r8 = answer_as(&mut c, 8);
         assert_eq!(r8.streak_after, 8);
         assert_eq!(r8.minted, (8_250 * ONE).to_string()); // 2.75 x 3,000
+        claim_rewards(&mut c, &[ALICE], 8);
         assert_eq!(balance(&c, ALICE), before - 500 * ONE + 1_250 * ONE);
     }
 
@@ -1794,6 +2405,13 @@ mod tests {
         assert_eq!(recs[6].streak_after, 7);
         assert_eq!(c.get_altar_share(), "0");
         assert_eq!(c.get_streak(), 7);
+        // Rewards and Feast shares are individual claims now: claim
+        // all seven rounds' rewards and the Feast share for each
+        // wallet before checking balances.
+        for r in 1..=7 {
+            claim_rewards(&mut c, &SIX, r);
+        }
+        claim_feast_shares(&mut c, &SIX, 7);
         assert_eq!(c.vault_balance, 0);
         assert_eq!(balance(&c, CONTRACT_ID), 0);
         assert_eq!(supply(&c), 1_029_250 * ONE);
@@ -1809,6 +2427,7 @@ mod tests {
         let r8 = answer_as(&mut c, 8);
         assert_eq!(r8.streak_after, 8);
         assert_eq!(r8.feast_paid, "0");
+        claim_rewards(&mut c, &[ALICE], 8);
         assert_eq!(balance(&c, ALICE), before - 500 * ONE + 1_250 * ONE);
         // Treasury is rebuilding: 750 from the round-8 pass alone.
         assert_eq!(c.get_altar_share(), (750 * ONE).to_string());
@@ -2088,9 +2707,10 @@ mod tests {
         }
         let rec = answer_as(&mut c, 1);
         assert_eq!(rec.status, "Passed");
-        // Alice got 20 back (2x her 10). The inflow happened in the
-        // Answer transaction, which ran in round 2, so her fresh clock
-        // starts at round 2.
+        // Alice got 20 back (2x her 10) when she claims it. The
+        // inflow happens on her claim, which runs in round 2, so her
+        // fresh clock starts at round 2.
+        claim_rewards(&mut c, &[ALICE], 1);
         assert_eq!(balance(&c, ALICE), 20 * ONE);
         set_ctx(ALICE, 0, round_start(2));
         let rep = c.get_reputation(acc(ALICE));
@@ -2107,7 +2727,7 @@ mod tests {
     fn answer_starts_from_init_round_not_zero() {
         let init_round = 2_990_592u64;
         set_ctx(DEPLOYER, 0, round_start(init_round));
-        let mut c = Contract::new(DURATION, 5, 0.25, 1, acc(ORACLE));
+        let mut c = Contract::new(DURATION, 5, 0.25, 1, 1, acc(ORACLE));
         assert_eq!(c.init_round, init_round);
         // Seed + offer 10 in the init round (a lone offer, so it fails).
         seed(&mut c, ALICE, 10_000 * ONE);
@@ -2208,10 +2828,23 @@ mod tests {
         seed(c, ORACLE, 5_000 * ONE);
     }
 
-    /// The Oracle predicts `prediction` in demo `round`.
+    /// The Oracle predicts `prediction` in demo `round`, via NEAR AI
+    /// (the test chat id stands in for a real verifiable response).
     fn predict_as(c: &mut Contract, prediction: bool, round: u64) {
         set_ctx(ORACLE, 1, round_start(round));
-        c.oracle_predict(prediction);
+        c.oracle_predict(
+            prediction,
+            "near-ai".to_string(),
+            Some("z-ai/glm-5.3-flash".to_string()),
+            Some("test-chat-id-1".to_string()),
+        );
+    }
+
+    /// The Oracle predicts `prediction` in demo `round`, via the
+    /// plain rule fallback (no model, no proof).
+    fn predict_rule_as(c: &mut Contract, prediction: bool, round: u64) {
+        set_ctx(ORACLE, 1, round_start(round));
+        c.oracle_predict(prediction, "rule".to_string(), None, None);
     }
 
     /// The Oracle's view, read in demo `round`.
@@ -2246,6 +2879,9 @@ mod tests {
         assert_eq!(pred.round_id, 1);
         assert_eq!(pred.prediction, "Pass");
         assert_eq!(pred.stake, (100 * ONE).to_string());
+        assert_eq!(pred.path, "near-ai");
+        assert_eq!(pred.model, Some("z-ai/glm-5.3-flash".to_string()));
+        assert_eq!(pred.proof, Some("test-chat-id-1".to_string()));
         assert_eq!(v.correct, 0);
         assert_eq!(v.wrong, 0);
         assert_eq!(v.total_staked, (100 * ONE).to_string());
@@ -2259,7 +2895,7 @@ mod tests {
         let mut c = setup();
         seed(&mut c, ALICE, 100_000 * ONE);
         set_ctx(ALICE, 1, round_start(1));
-        c.oracle_predict(true);
+        c.oracle_predict(true, "near-ai".to_string(), Some("z-ai/glm-5.3-flash".to_string()), Some("test-chat-id-1".to_string()));
     }
 
     #[test]
@@ -2300,7 +2936,11 @@ mod tests {
         assert_eq!(c.get_altar_share(), (740 * ONE).to_string());
         assert_eq!(supply(&c), 1_003_750 * ONE);
         assert_eq!(c.oracle_locked, 0);
-        assert_eq!(balance(&c, CONTRACT_ID), 740 * ONE);
+        // The contract holds the treasury (740) plus the offerers'
+        // unclaimed rewards (6,000): rewards are claims now, not a
+        // push at settlement.
+        assert_eq!(balance(&c, CONTRACT_ID), 6_740 * ONE);
+        assert_eq!(c.pending_claims, 6_000 * ONE);
         let v = oracle_view(&c, 2);
         assert_eq!(v.correct, 1);
         assert_eq!(v.wrong, 0);
@@ -2455,5 +3095,463 @@ mod tests {
         assert_eq!(v.total_staked, "0");
         assert_eq!(v.total_rewarded, "0");
         assert_eq!(v.total_burned, "0");
+    }
+
+    // -- the quiet tithe -------------------------------------------------
+
+    /// Sweep the tithe from `target` in demo `round` (called by Alice);
+    /// returns the amount taken.
+    fn sweep_as(c: &mut Contract, target: &str, round: u64) -> u128 {
+        set_ctx(ALICE, 1, round_start(round));
+        c.sweep_quiet(acc(target)).0
+    }
+
+    fn sweep_as_prod(c: &mut Contract, target: &str, round: u64) -> u128 {
+        set_ctx(ALICE, 1, round_start_prod(round));
+        c.sweep_quiet(acc(target)).0
+    }
+
+    /// The quiet view for `who`, read in demo `round`.
+    fn quiet_view(c: &Contract, who: &str, round: u64) -> QuietView {
+        set_ctx(ALICE, 0, round_start(round));
+        c.get_quiet(acc(who))
+    }
+
+    #[test]
+    fn quiet_no_deduction_within_grace() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        // Demo grace is 1 round: in round 1 she has been quiet for 1
+        // round, which is all grace, so the sweep takes nothing.
+        assert_eq!(sweep_as(&mut c, ALICE, 1), 0);
+        assert_eq!(balance(&c, ALICE), 10_000 * ONE);
+        assert_eq!(c.get_altar_share(), "0");
+        assert_eq!(c.quiet_total_collected, 0);
+    }
+
+    #[test]
+    fn quiet_deduction_after_grace_exact() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        // Round 5, quiet since round 0, grace 1: 4 taxable rounds at
+        // 1% of 10,000 = 400 into the Altar's share.
+        assert_eq!(sweep_as(&mut c, ALICE, 5), 400 * ONE);
+        assert_eq!(balance(&c, ALICE), 9_600 * ONE);
+        assert_eq!(c.get_altar_share(), (400 * ONE).to_string());
+        assert_eq!(c.quiet_total_collected, 400 * ONE);
+        assert_eq!(supply(&c), GENESIS_SUPPLY);
+        let v = quiet_view(&c, ALICE, 5);
+        assert_eq!(v.last_offer_round, Some(0));
+        assert_eq!(v.last_swept_round, Some(5));
+        assert_eq!(v.quiet_rounds, 5);
+        assert_eq!(v.taxable_rounds, 0);
+        assert_eq!(v.would_deduct, "0");
+        assert!(!v.exempt);
+    }
+
+    #[test]
+    fn quiet_second_sweep_only_new_days() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        assert_eq!(sweep_as(&mut c, ALICE, 5), 400 * ONE);
+        // Round 7: 6 taxable rounds since round 0, 4 already paid, so
+        // only 2 new days at 1% of the 9,600 left = 192.
+        assert_eq!(sweep_as(&mut c, ALICE, 7), 192 * ONE);
+        assert_eq!(balance(&c, ALICE), 9_408 * ONE);
+        assert_eq!(c.get_altar_share(), (592 * ONE).to_string());
+        assert_eq!(c.quiet_total_collected, 592 * ONE);
+    }
+
+    #[test]
+    fn quiet_offer_resets_clock() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        offer_as(&mut c, ALICE, 10 * ONE, 3);
+        let rec = answer_as(&mut c, 3);
+        assert_eq!(rec.status, "Failed");
+        assert_eq!(balance(&c, ALICE), 9_990 * ONE);
+        // Quiet since the round 3 offer, grace 1: 6 taxable rounds at
+        // 1% of 9,990 = 599.4 (the division happens once, so the 0.4
+        // survives in smallest units).
+        assert_eq!(sweep_as(&mut c, ALICE, 10), (5994 * ONE) / 10);
+        assert_eq!(balance(&c, ALICE), 9_990 * ONE - (5994 * ONE) / 10);
+        assert_eq!(c.get_altar_share(), ((5994 * ONE) / 10).to_string());
+    }
+
+    #[test]
+    fn quiet_oracle_and_contract_exempt() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        seed(&mut c, ALICE, 10_000 * ONE);
+        offer_as(&mut c, ALICE, 10 * ONE, 0);
+        // Give both exempt accounts a quiet clock by hand: even with
+        // one, the sweep must take nothing.
+        c.quiet.insert(
+            acc(ORACLE),
+            QuietState {
+                last_offer_round: 0,
+                last_swept_round: 0,
+            },
+        );
+        c.quiet.insert(
+            acc(CONTRACT_ID),
+            QuietState {
+                last_offer_round: 0,
+                last_swept_round: 0,
+            },
+        );
+        assert_eq!(sweep_as(&mut c, ORACLE, 10), 0);
+        assert_eq!(balance(&c, ORACLE), 5_000 * ONE);
+        assert_eq!(sweep_as(&mut c, CONTRACT_ID, 10), 0);
+        assert_eq!(balance(&c, CONTRACT_ID), 10 * ONE);
+        assert_eq!(quiet_view(&c, ORACLE, 10).exempt, true);
+        assert_eq!(quiet_view(&c, CONTRACT_ID, 10).exempt, true);
+    }
+
+    #[test]
+    fn quiet_zero_balance_clears_clock() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        seed(&mut c, BOB, 10_000 * ONE);
+        // Alice sends everything to Bob: her clock is forgotten.
+        set_ctx(ALICE, 1, round_start(0));
+        c.ft_transfer(acc(BOB), U128(10_000 * ONE), None);
+        assert_eq!(balance(&c, ALICE), 0);
+        assert_eq!(quiet_view(&c, ALICE, 0).last_offer_round, None);
+        // Bob sends 5,000 back in round 2: a fresh clock starts there.
+        set_ctx(BOB, 1, round_start(2));
+        c.ft_transfer(acc(ALICE), U128(5_000 * ONE), None);
+        assert_eq!(quiet_view(&c, ALICE, 2).last_offer_round, Some(2));
+        // Round 5: 2 taxable rounds at 1% of 5,000 = 100.
+        assert_eq!(sweep_as(&mut c, ALICE, 5), 100 * ONE);
+        assert_eq!(balance(&c, ALICE), 4_900 * ONE);
+    }
+
+    #[test]
+    fn quiet_cap_half_balance() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        // Round 60, quiet since round 0, grace 1: 59 taxable rounds
+        // would be 5,900, but no single sweep takes more than half.
+        assert_eq!(sweep_as(&mut c, ALICE, 60), 5_000 * ONE);
+        assert_eq!(balance(&c, ALICE), 5_000 * ONE);
+        assert_eq!(c.get_altar_share(), (5_000 * ONE).to_string());
+    }
+
+    #[test]
+    fn quiet_production_grace_7() {
+        let mut c = setup_prod();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        // Production grace is 7 rounds: nothing at round 7, 1% at 8.
+        assert_eq!(sweep_as_prod(&mut c, ALICE, 7), 0);
+        assert_eq!(sweep_as_prod(&mut c, ALICE, 8), 100 * ONE);
+        assert_eq!(balance(&c, ALICE), 9_900 * ONE);
+    }
+
+    #[test]
+    fn quiet_claim_starts_clock() {
+        let mut c = setup();
+        claim_as(&mut c, ALICE, 0);
+        // 100 claimed in round 0; round 5, grace 1: 4 taxable rounds
+        // at 1% of 100 = 4.
+        assert_eq!(sweep_as(&mut c, ALICE, 5), 4 * ONE);
+        assert_eq!(balance(&c, ALICE), 96 * ONE);
+        assert_eq!(c.get_altar_share(), (4 * ONE).to_string());
+    }
+
+    #[test]
+    fn quiet_view_matches_sweep() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 10_000 * ONE);
+        let v = quiet_view(&c, ALICE, 5);
+        assert_eq!(v.account_id, ALICE);
+        assert_eq!(v.last_offer_round, Some(0));
+        assert_eq!(v.last_swept_round, Some(0));
+        assert_eq!(v.quiet_rounds, 5);
+        assert_eq!(v.taxable_rounds, 4);
+        assert_eq!(v.would_deduct, (400 * ONE).to_string());
+        assert!(!v.exempt);
+        assert_eq!(sweep_as(&mut c, ALICE, 5), 400 * ONE);
+        let v = quiet_view(&c, ALICE, 5);
+        assert_eq!(v.taxable_rounds, 0);
+        assert_eq!(v.would_deduct, "0");
+        assert_eq!(v.last_swept_round, Some(5));
+    }
+
+    #[test]
+    fn quiet_unknown_wallet_view_is_empty() {
+        let c = setup();
+        let v = quiet_view(&c, "nobody.testnet", 3);
+        assert_eq!(v.last_offer_round, None);
+        assert_eq!(v.quiet_rounds, 0);
+        assert_eq!(v.taxable_rounds, 0);
+        assert_eq!(v.would_deduct, "0");
+        assert!(!v.exempt);
+    }
+
+    // -- v5: Oracle identity + settlement scalability -----------------
+
+    /// Settle demo `round` on its own with `answer_round` (call in
+    /// the next round); returns its record.
+    fn answer_round_as(c: &mut Contract, round: u64) -> RoundRecord {
+        set_ctx(ALICE, 1, round_start(round + 1));
+        c.answer_round(round)
+    }
+
+    /// A NEAR AI prediction is recorded onchain with its path, model
+    /// and proof (chat id), in the round record.
+    #[test]
+    fn oracle_identity_near_ai_recorded_onchain() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_six_500(&mut c, 1);
+        predict_as(&mut c, true, 1);
+        let rec = answer_as(&mut c, 1);
+        assert_eq!(rec.oracle_prediction, Some("Pass".to_string()));
+        assert_eq!(rec.oracle_outcome, "correct");
+        assert_eq!(rec.oracle_path, Some("near-ai".to_string()));
+        assert_eq!(
+            rec.oracle_model,
+            Some("z-ai/glm-5.3-flash".to_string())
+        );
+        assert_eq!(rec.oracle_proof, Some("test-chat-id-1".to_string()));
+    }
+
+    /// A rule prediction is recorded onchain as the rule, with no
+    /// model and no proof — so the record makes clear which path
+    /// each prediction took.
+    #[test]
+    fn oracle_identity_rule_recorded_onchain() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        seed_oracle(&mut c);
+        offer_six_500(&mut c, 1);
+        predict_rule_as(&mut c, true, 1);
+        let rec = answer_as(&mut c, 1);
+        assert_eq!(rec.oracle_prediction, Some("Pass".to_string()));
+        assert_eq!(rec.oracle_outcome, "correct");
+        assert_eq!(rec.oracle_path, Some("rule".to_string()));
+        assert_eq!(rec.oracle_model, None);
+        assert_eq!(rec.oracle_proof, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "must carry its proof")]
+    fn oracle_predict_near_ai_without_proof_panics() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        set_ctx(ORACLE, 1, round_start(1));
+        c.oracle_predict(
+            true,
+            "near-ai".to_string(),
+            Some("z-ai/glm-5.3-flash".to_string()),
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "must name its model")]
+    fn oracle_predict_near_ai_without_model_panics() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        set_ctx(ORACLE, 1, round_start(1));
+        c.oracle_predict(
+            true,
+            "near-ai".to_string(),
+            None,
+            Some("test-chat-id-1".to_string()),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "has no proof")]
+    fn oracle_predict_rule_with_proof_panics() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        set_ctx(ORACLE, 1, round_start(1));
+        c.oracle_predict(
+            true,
+            "rule".to_string(),
+            None,
+            Some("test-chat-id-1".to_string()),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "must be \"near-ai\" or \"rule\"")]
+    fn oracle_predict_bad_path_panics() {
+        let mut c = setup();
+        seed_oracle(&mut c);
+        set_ctx(ORACLE, 1, round_start(1));
+        c.oracle_predict(true, "guess".to_string(), None, None);
+    }
+
+    /// One round settles independently with `answer_round`, and the
+    /// next round stays unsettled until it is answered too.
+    #[test]
+    fn answer_round_settles_one_round_only() {
+        let mut c = setup();
+        seed_five(&mut c, 100_000 * ONE);
+        offer_five_500(&mut c, 1);
+        // Round 0 is empty (fails), round 1 passes. Both are ended
+        // once the clock reaches round 2.
+        let r0 = answer_round_as(&mut c, 0);
+        assert_eq!(r0.round_id, 0);
+        assert_eq!(r0.status, "Failed");
+        // Round 1 is still unsettled: get_round panics for it.
+        set_ctx(ALICE, 0, round_start(2));
+        let rec = c.get_round(0);
+        assert_eq!(rec.status, "Failed");
+        let r1 = answer_round_as(&mut c, 1);
+        assert_eq!(r1.round_id, 1);
+        assert_eq!(r1.status, "Passed");
+        assert_eq!(c.get_streak(), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "settle in order")]
+    fn answer_round_out_of_order_panics() {
+        let mut c = setup();
+        seed_five(&mut c, 100_000 * ONE);
+        offer_five_500(&mut c, 1);
+        // Round 0 is the next unsettled round; answering 1 first panics.
+        answer_round_as(&mut c, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "has not ended yet")]
+    fn answer_round_unended_panics() {
+        let mut c = setup();
+        // Round 0 is still open in round 0.
+        set_ctx(ALICE, 1, round_start(0));
+        c.answer_round(0);
+    }
+
+    /// The Answer settles at most ANSWER_BATCH (5) rounds per call:
+    /// a backlog of seven empty rounds takes two calls.
+    #[test]
+    fn answer_batch_caps_at_five() {
+        let mut c = setup();
+        assert_eq!(c.get_params().answer_batch, 5);
+        // Seven empty rounds (0-6) end once the clock reaches round 7.
+        set_ctx(ALICE, 1, round_start(7));
+        let first = c.answer();
+        assert_eq!(first.round_id, 4);
+        assert_eq!(first.status, "Failed");
+        // Rounds 5 and 6 are still unsettled.
+        set_ctx(ALICE, 0, round_start(7));
+        assert_eq!(c.get_round(4).status, "Failed");
+        set_ctx(ALICE, 1, round_start(7));
+        let second = c.answer();
+        assert_eq!(second.round_id, 6);
+        assert_eq!(second.status, "Failed");
+        // Everything is settled now; a third call has nothing to do.
+        set_ctx(ALICE, 1, round_start(7));
+        let hist = c.get_round_history(10);
+        assert_eq!(hist.len(), 7);
+    }
+
+    /// A PASS reward is claimed individually, for the exact pro-rata
+    /// amount, and cannot be claimed twice. The claimable view agrees
+    /// before the claim and reads 0 after it.
+    #[test]
+    fn claim_reward_exact_and_double_claim_panics() {
+        let mut c = setup();
+        seed_five(&mut c, 100_000 * ONE);
+        offer_five_500(&mut c, 1);
+        let _ = answer_as(&mut c, 1);
+        // Alice offered 500 of 2,500; the offerer total is 5,000,
+        // so her share is 1,000.
+        set_ctx(ALICE, 0, round_start(2));
+        assert_eq!(c.get_claimable_reward(acc(ALICE), 1), U128(1_000 * ONE));
+        assert_eq!(c.get_claimable_reward(acc(BOB), 1), U128(1_000 * ONE));
+        let before = balance(&c, ALICE);
+        set_ctx(ALICE, 1, round_start(2));
+        let got = c.claim_reward(1);
+        assert_eq!(got, U128(1_000 * ONE));
+        assert_eq!(balance(&c, ALICE), before + 1_000 * ONE);
+        set_ctx(ALICE, 0, round_start(2));
+        assert_eq!(c.get_claimable_reward(acc(ALICE), 1), U128(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "reward already claimed")]
+    fn claim_reward_twice_panics() {
+        let mut c = setup();
+        seed_five(&mut c, 100_000 * ONE);
+        offer_five_500(&mut c, 1);
+        let _ = answer_as(&mut c, 1);
+        claim_rewards(&mut c, &[ALICE], 1);
+        set_ctx(ALICE, 1, round_start(2));
+        c.claim_reward(1);
+    }
+
+    #[test]
+    #[should_panic(expected = "only a passed round pays a reward")]
+    fn claim_reward_on_failed_round_panics() {
+        let mut c = setup();
+        seed(&mut c, ALICE, 100_000 * ONE);
+        offer_as(&mut c, ALICE, 500 * ONE, 1);
+        let _ = answer_as(&mut c, 1);
+        set_ctx(ALICE, 1, round_start(2));
+        c.claim_reward(1);
+    }
+
+    #[test]
+    #[should_panic(expected = "offered nothing in this round")]
+    fn claim_reward_by_non_offerer_panics() {
+        let mut c = setup();
+        seed_five(&mut c, 100_000 * ONE);
+        offer_five_500(&mut c, 1);
+        let _ = answer_as(&mut c, 1);
+        // Frank never offered in round 1.
+        seed(&mut c, FRANK, 100_000 * ONE);
+        set_ctx(FRANK, 1, round_start(2));
+        c.claim_reward(1);
+    }
+
+    /// A Feast share is claimed individually, for the exact pro-rata
+    /// amount, and cannot be claimed twice.
+    #[test]
+    fn claim_feast_exact_and_double_claim_panics() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        let _ = pass_rounds_demo(&mut c, 1, 7);
+        // Alice offered 500 in each of the seven window rounds;
+        // the Feast total is 5,250 and the window total is 21,000,
+        // so her share is 875.
+        set_ctx(ALICE, 0, round_start(8));
+        assert_eq!(c.get_claimable_feast(acc(ALICE), 7), U128(875 * ONE));
+        let before = balance(&c, ALICE);
+        set_ctx(ALICE, 1, round_start(8));
+        let got = c.claim_feast(7);
+        assert_eq!(got, U128(875 * ONE));
+        assert_eq!(balance(&c, ALICE), before + 875 * ONE);
+        set_ctx(ALICE, 0, round_start(8));
+        assert_eq!(c.get_claimable_feast(acc(ALICE), 7), U128(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "Feast share already claimed")]
+    fn claim_feast_twice_panics() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        let _ = pass_rounds_demo(&mut c, 1, 7);
+        claim_feast_shares(&mut c, &[ALICE], 7);
+        set_ctx(ALICE, 1, round_start(8));
+        c.claim_feast(7);
+    }
+
+    #[test]
+    #[should_panic(expected = "offered nothing in this Feast window")]
+    fn claim_feast_by_non_window_wallet_panics() {
+        let mut c = setup();
+        seed_six(&mut c, 100_000 * ONE);
+        let _ = pass_rounds_demo(&mut c, 1, 7);
+        // A fresh wallet that never offered cannot claim the Feast.
+        seed(&mut c, "outsider.testnet", 100_000 * ONE);
+        set_ctx("outsider.testnet", 1, round_start(8));
+        c.claim_feast(7);
     }
 }

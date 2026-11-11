@@ -174,6 +174,47 @@ if (remain < MIN_SECONDS_LEFT) {
   process.exit(0);
 }
 
+// THE FUND: the Oracle stakes 100 ALTAR from its own wallet every
+// round. Right: the stake comes back plus 10. Wrong: the 100 is
+// burned. The fund therefore drains on a losing run, and the
+// contract never refills it, so this script tops the Oracle up from
+// the deployer (the genesis holder, CONTRACT_ID itself) whenever
+// the fund falls below the top-up line. The burn stays real: the
+// 100 is destroyed at answer time and gone from supply; the top-up
+// is a fresh transfer from the reserve, not a refund of the burn.
+// The reserve is the deployer's remaining genesis balance (937,230
+// on demo, 995,000 on production at 2026-11-11), so it is finite:
+// one top-up buys 10 more stakes, not forever. Threshold and
+// amount are whole ALTAR; override with ORACLE_TOPUP_THRESHOLD /
+// ORACLE_TOPUP_AMOUNT. --no-topup skips the top-up.
+const NO_TOPUP = args.includes('--no-topup');
+const TOPUP_THRESHOLD = BigInt(process.env.ORACLE_TOPUP_THRESHOLD || '500') * E18;
+const TOPUP_AMOUNT = BigInt(process.env.ORACLE_TOPUP_AMOUNT || '1000') * E18;
+let oracleBalance = BigInt(await view('ft_balance_of', { account_id: ORACLE_ID }));
+console.log(`oracle: fund ${fmtAmt(oracleBalance.toString())} ALTAR (top-up line ${fmtAmt(TOPUP_THRESHOLD.toString())})`);
+if (oracleBalance < TOPUP_THRESHOLD) {
+  if (NO_TOPUP) {
+    console.log('oracle: --no-topup given, not topping up.');
+  } else if (DRY_RUN) {
+    console.log(`oracle: dry run, would top up ${fmtAmt(TOPUP_AMOUNT.toString())} ALTAR from ${CONTRACT_ID}.`);
+  } else {
+    try {
+      const top = await caller.functionCall({ contractId: CONTRACT_ID, methodName: 'ft_transfer', args: { receiver_id: ORACLE_ID, amount: TOPUP_AMOUNT.toString() }, gas: GAS, attachedDeposit: ONE_YOCTO });
+      console.log(`oracle: top-up ${fmtAmt(TOPUP_AMOUNT.toString())} ALTAR from ${CONTRACT_ID} tx: ${top.transaction.hash}`);
+      oracleBalance = BigInt(await view('ft_balance_of', { account_id: ORACLE_ID }));
+      console.log(`oracle: fund after top-up ${fmtAmt(oracleBalance.toString())} ALTAR`);
+    } catch (e) {
+      console.log(`oracle: top-up failed (${e.message || e}).`);
+    }
+  }
+} else {
+  console.log('oracle: fund is above the top-up line, no top-up.');
+}
+if (oracleBalance < 100n * E18) {
+  console.log(`oracle: fund ${fmtAmt(oracleBalance.toString())} ALTAR is under one 100 stake. Cannot predict.`);
+  process.exit(0);
+}
+
 // The rule, in integers: pass when offered >= 80% of the line AND
 // offerers >= 80% of the gate. It is the fallback; the NEAR AI
 // prediction is tried first.
@@ -221,12 +262,21 @@ if (FORCE === 'pass' || FORCE === 'fail') {
       totalStaked: fmtAmt(oracle.total_staked || '0'),
     });
     if (ai.parsed) {
-      prediction = ai.parsed.pass;
-      reason = ai.parsed.reason;
-      predPath = 'near-ai';
-      aiInfo = { model: MODEL, verifiable: ai.verifiable, chat_id: ai.chatId, attestation_present: ai.attestationPresent };
-      console.log(`oracle: NEAR AI says ${prediction ? 'PASS' : 'FAIL'} (${reason})`);
-      console.log(`oracle: NEAR AI call verifiable=${ai.verifiable} chat_id=${ai.chatId} attestation_present=${ai.attestationPresent}`);
+      // A NEAR AI prediction only counts as near-ai when it is
+      // verifiable: the contract refuses a near-ai prediction with no
+      // proof (chat id), so a response that cannot be anchored
+      // onchain falls back to the rule instead of being sent as
+      // near-ai without evidence.
+      if (ai.verifiable && ai.chatId) {
+        prediction = ai.parsed.pass;
+        reason = ai.parsed.reason;
+        predPath = 'near-ai';
+        aiInfo = { model: MODEL, verifiable: ai.verifiable, chat_id: ai.chatId, attestation_present: ai.attestationPresent };
+        console.log(`oracle: NEAR AI says ${prediction ? 'PASS' : 'FAIL'} (${reason})`);
+        console.log(`oracle: NEAR AI call verifiable=${ai.verifiable} chat_id=${ai.chatId} attestation_present=${ai.attestationPresent}`);
+      } else {
+        console.log(`oracle: NEAR AI answered but the response is not verifiable (verifiable=${ai.verifiable} chat_id=${ai.chatId}), using the rule fallback.`);
+      }
     } else {
       console.log('oracle: NEAR AI output had no usable PREDICTION/REASON, using the rule fallback.');
       console.log(`oracle: raw model output (first 300 chars): ${(ai.raw || '').slice(0, 300)}`);
@@ -243,7 +293,14 @@ if (DRY_RUN) {
 }
 
 const oracleAcct = await near.account(ORACLE_ID);
-const tx = await oracleAcct.functionCall({ contractId: CONTRACT_ID, methodName: 'oracle_predict', args: { prediction }, gas: GAS, attachedDeposit: ONE_YOCTO });
+// The prediction carries its identity onchain: how it was made
+// (path), which model made it, and the verifiable reference to the
+// inference (the NEAR AI chat id). A rule prediction carries neither
+// a model nor a proof.
+const predictArgs = predPath === 'near-ai'
+  ? { prediction, path: 'near-ai', model: MODEL, proof: aiInfo.chat_id }
+  : { prediction, path: 'rule', model: null, proof: null };
+const tx = await oracleAcct.functionCall({ contractId: CONTRACT_ID, methodName: 'oracle_predict', args: predictArgs, gas: GAS, attachedDeposit: ONE_YOCTO });
 console.log(`oracle: oracle_predict tx: ${tx.transaction.hash}`);
 const after = await view('get_oracle', {});
 console.log(`oracle: get_oracle after: ${JSON.stringify(after)}`);

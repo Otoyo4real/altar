@@ -1,0 +1,70 @@
+
+## Feast proof — v4 demo (2026-11-11T14:30:26.880Z)
+
+Ran on altar-ritual-v4-demo.testnet (600s rounds). The earlier Feast proofs were on the abandoned v1, v2 and v3 demo contracts.
+
+- starting streak: 3
+- --- pass round 2990679 (streak 3 -> 4), 573s left, threshold 2522629355065000000000
+- offer 504525871013000000000 altar-proof1.testnet: 9HU1zb8S1TZjqhhfux4sfVss3cTYCaBPyVjgyhfkeeFZ
+- offer 504525871013000000000 altar-proof2.testnet: GN6QA7SZvZPaEWHb8BiVCKcD7FqoXacsGF2aQccFsEWf
+- offer 504525871013000000000 altar-proof3.testnet: AGbJVR9uDg4aih66yy9AsBbwswRavubr3EuBwJNNnqc1
+- offer 504525871013000000000 altar-proof4.testnet: 37nhtFfdbuU1vNtyRyFp15wqKBeizfoz7ePJ9DMKdDFb
+- offer 504525871013000000000 altar-proof5.testnet: F95cTyCd5Nir2uRpSf5KFbxsunuEHqxWSJ9XvRQ5LydA
+- offer 504525871013000000000 altar-proof6.testnet: Hp9KHMVvvJ6NUTc42qC3UaY7H1LZQ9T6rNjtdj44WZVr
+- round 2990679 after offers: total_offered=3027155226078000000000 offerer_count=6 threshold=2522629355065000000000
+- round 2990679 ended; calling answer()
+- answer tx: 2P77CcQ1hkSXSPVQcEafWQ3phmFQ4Ucx3FwAddYtKLpu
+- round 2990679 record: {"round_id":2990679,"total_offered":"3027155226078000000000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7567888065195000000000","burned":"3027155226078000000000","feast_paid":"0","streak_after":4,"oracle_prediction":null,"oracle_outcome":"none","oracle_rewarded":"0","oracle_burned":"0"}
+- streak now: 4
+- treasury now: 3002224313019500000000
+- --- pass round 2990680 (streak 4 -> 5), 589s left, threshold 2532089215146493750000
+- offer 506417843029298750000 altar-proof1.testnet: A5K45RVCMU2ahfHxVtXQrnJqdVwicRocHC1Rgqj4hvmu
+- offer 506417843029298750000 altar-proof2.testnet: Ddz2VGgf2gXQ5VqLMfFtp78xRGH7BZniUyPyQyZe67Tg
+- offer 506417843029298750000 altar-proof3.testnet: HMHvLg5GAX1SNXXSjbz2ds33pmPfPdG632zvY7Ci8wSU
+- offer 506417843029298750000 altar-proof4.testnet: 6C1n2vobqtP4eqJ6w6ErPP7WKnU38krkicvVs8Uc9xwo
+- offer 506417843029298750000 altar-proof5.testnet: DZLQutYC4EhEbJBT1ZqNtJrknXTmJ5RVdjDy8h3qj6yp
+- offer 506417843029298750000 altar-proof6.testnet: EuMwTJ9fZ4fAu4Csq2waNgQYj8ANJYaPWFZna2m1hTrK
+- round 2990680 after offers: total_offered=3038507058175792500000 offerer_count=6 threshold=2532089215146493750000
+- round 2990680 ended; calling answer()
+- answer tx: EZLES4kHQ691pKeK7vMGJMoHdAGWQCJADrfZRt1HFAr5
+- round 2990680 record: {"round_id":2990680,"total_offered":"3038507058175792500000","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7596267645439481250000","burned":"3038507058175792500000","feast_paid":"0","streak_after":5,"oracle_prediction":null,"oracle_outcome":"none","oracle_rewarded":"0","oracle_burned":"0"}
+- streak now: 5
+- treasury now: 3761851077563448125000
+- --- pass round 2990681 (streak 5 -> 6), 588s left, threshold 2541584549703293101562
+- offer 508316909940658620312 altar-proof1.testnet: U9sjr1cAfuQPJ4qECb34u7G6iZMFhMjy2W9zEzGeVxn
+- offer 508316909940658620312 altar-proof2.testnet: 3siVfXZf2nz4catUaUHCpe1U13P31jT4zdQWerKMFdBf
+- offer 508316909940658620312 altar-proof3.testnet: 4WitEDNQ31kKi6WB6knx3MZsT4ePqSZhPNSerXYvRAti
+- offer 508316909940658620312 altar-proof4.testnet: 8HGtXSWhhogGJfT7voPkABXukQB7L5N8SGiFtwZHDPxs
+- offer 508316909940658620312 altar-proof5.testnet: 4brfEWRDEnBHamAYk4Dinh4kvK8ou2DVxnaRVXho29HW
+- offer 508316909940658620312 altar-proof6.testnet: 2GctESHpKd2iXntwZ1DVnrDQNtnfgqLmpQRTpaoQ596P
+- round 2990681 after offers: total_offered=3049901459643951721872 offerer_count=6 threshold=2541584549703293101562
+- round 2990681 ended; calling answer()
+- answer tx: H2aAzc1RkkopkNWcHG27pTkXcujAiHE6S5hLtpwPJ8RF
+- round 2990681 record: {"round_id":2990681,"total_offered":"3049901459643951721872","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7624753649109879304680","burned":"3049901459643951721872","feast_paid":"0","streak_after":6,"oracle_prediction":null,"oracle_outcome":"none","oracle_rewarded":"0","oracle_burned":"0"}
+- streak now: 6
+- treasury now: 4524326442474436055468
+- --- pass round 2990682 (streak 6 -> 7), 590s left, threshold 2551115491764680450693
+- offer 510223098352936090138 altar-proof1.testnet: 2oEek4WKufzYS5tD289JQrF7UetjkWfhjbnqxujmD1ji
+- offer 510223098352936090138 altar-proof2.testnet: HzFSKteTWR8fewnGqtuwJ43CpMC7B5sb4paSLqoKcGxq
+- offer 510223098352936090138 altar-proof3.testnet: 4fFNWEvmMWPkkuUZpco653kKbM3qm5Lwkn5qfJ79oSjr
+- offer 510223098352936090138 altar-proof4.testnet: 2M1Dd7ZZkXppxgphQYS8ABj8UMFySMxced3karjpQnVU
+- offer 510223098352936090138 altar-proof5.testnet: GzTfgmWqGsAqzZQgWoe1tQUp5z6F3rDYhbLweaBDFnWq
+- offer 510223098352936090138 altar-proof6.testnet: C5h8A7TWg1s5TPUgCesvGuKJthCnNfUUDNuXYbVjCL6o
+- round 2990682 after offers: total_offered=3061338590117616540828 offerer_count=6 threshold=2551115491764680450693
+- round 2990682 ended; calling answer()
+- answer tx: 511JUj7EYoqzByeFD8zLamEc4Yo417dSz1pvhFkbuKcm
+- round 2990682 record: {"round_id":2990682,"total_offered":"3061338590117616540828","offerer_count":6,"status":"Passed","last_offerer":"altar-proof6.testnet","minted":"7653346475294041352070","burned":"3061338590117616540828","feast_paid":"5289661090003840190675","streak_after":7,"oracle_prediction":null,"oracle_outcome":"none","oracle_rewarded":"0","oracle_burned":"0"}
+- streak now: 7
+- treasury now: 0
+- final supply: 1029562531033523041144050
+- final streak: 7
+- final treasury: 0
+- final get_oracle: {"oracle":"altar-oracle.testnet","prediction":null,"correct":1,"wrong":1,"total_staked":"200000000000000000000","total_rewarded":"10000000000000000000","total_burned":"100000000000000000000","stake_amount":"100000000000000000000","reward_amount":"10000000000000000000"}
+- final balance altar-proof1.testnet: 14912088505587173524007
+- final balance altar-proof2.testnet: 14912088505587173524007
+- final balance altar-proof3.testnet: 14912088505587173524007
+- final balance altar-proof4.testnet: 14912088505587173524007
+- final balance altar-proof5.testnet: 14912088505587173524007
+- final balance altar-proof6.testnet: 14912088505587173524015
+- final oracle balance: 4910000000000000000000
+- FEAST PROOF V4 DONE
