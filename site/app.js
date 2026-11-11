@@ -29,6 +29,7 @@
   var reputationNow = null;
   var claimedNow = null;
   var oracleNow = null;
+  var roundNow = null;
   var walletAccountId = null;
 
   function el(id) { return document.getElementById(id); }
@@ -464,6 +465,7 @@
         var need = offering.min_offerers != null ? offering.min_offerers : (paramsNow && paramsNow.min_offerers != null ? paramsNow.min_offerers : null);
         setText("offererNeed", need === null ? DASH : String(need));
         if (offering.round_end != null) roundEndSec = Number(offering.round_end);
+        if (offering.round_id != null) roundNow = Number(offering.round_id);
         if (offering.streak != null) streakNow = Number(offering.streak);
         var treasury = offering.treasury;
         if (treasury !== undefined && treasury !== null) setText("treasuryValue", formatAmount(treasury));
@@ -568,14 +570,36 @@
       setText("oracleTotalStaked", formatAmount(o.total_staked || "0"));
       var reason = el("oracleReason");
       if (!reason) return;
-      if (thresholdNow === null || thresholdNow <= 0n || offeredNow === null || offererCountNow === null) {
-        reason.textContent = "The Oracle reads the round as it fills. Its prediction appears here once it stakes.";
-        return;
-      }
-      var pct = Number(offeredNow * 100n / thresholdNow);
-      var gatePct = Math.round(offererCountNow * 100 / minOfferersNow());
-      var expectsPass = offeredNow * 100n >= thresholdNow * 80n && offererCountNow * 100 >= minOfferersNow() * 80;
-      reason.textContent = "Right now the offering covers " + pct + "% of the line with " + gatePct + "% of the offerers needed, so the rule expects a " + (expectsPass ? "pass" : "fail") + ".";
+      // The rule line is the live read of the round as it stands now.
+      // It is also the fallback when there is no matching prediction
+      // file: the rule is what the Oracle uses when NEAR AI cannot
+      // be reached.
+      var showRuleLine = function () {
+        if (thresholdNow === null || thresholdNow <= 0n || offeredNow === null || offererCountNow === null) {
+          reason.textContent = "The Oracle reads the round as it fills. Its prediction appears here once it stakes.";
+          return;
+        }
+        var pct = Number(offeredNow * 100n / thresholdNow);
+        var gatePct = Math.round(offererCountNow * 100 / minOfferersNow());
+        var expectsPass = offeredNow * 100n >= thresholdNow * 80n && offererCountNow * 100 >= minOfferersNow() * 80;
+        reason.textContent = "Right now the offering covers " + pct + "% of the line with " + gatePct + "% of the offerers needed, so the rule expects a " + (expectsPass ? "pass" : "fail") + ".";
+      };
+      // The agent writes site/oracle-latest.json after each real
+      // prediction. When it matches this contract and this round, show
+      // the model's own reasoning and say which path made it.
+      fetch("oracle-latest.json", { cache: "no-store" }).then(function (r) {
+        if (!r.ok) throw new Error("no latest prediction file");
+        return r.json();
+      }).then(function (latest) {
+        if (!latest || latest.contract !== CONTRACT_ID || latest.round_id !== roundNow || !latest.reasoning) {
+          showRuleLine();
+          return;
+        }
+        var label = latest.path === "near-ai" ? "NEAR AI: " : "The rule: ";
+        reason.textContent = label + latest.reasoning;
+      }).catch(function () {
+        showRuleLine();
+      });
     }).catch(function () {
       // The contract may be unreachable; the dashes stay.
     });

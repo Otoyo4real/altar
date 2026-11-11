@@ -1,0 +1,11 @@
+{
+  "contract": "altar-ritual-v3-demo.testnet",
+  "round_id": 2990654,
+  "prediction": "Pass",
+  "reasoning": "The offering of 3000 already exceeds the line of 2588.95 and six offerers surpass the five required, so the round has effectively secured its pass.",
+  "path": "near-ai",
+  "model": "z-ai/glm-5.3-flash",
+  "chat_id": "9dc5aeb60e514b129219a9d0498df9fd",
+  "verifiable": true,
+  "updated_at": "2026-11-11T10:21:53.906Z"
+}
