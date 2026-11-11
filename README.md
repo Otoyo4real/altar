@@ -2,7 +2,7 @@
 
 ## Humans against the machine.
 
-The community decides. The machine has to guess.
+Humans must sacrifice together. The machine must predict. The altar decides.
 
 ALTAR is a daily offering ritual. The community offers together before midnight. The Oracle, a NEAR AI agent, bets its own coins on whether the offering will pass. The humans decide if it wins or loses.
 
@@ -10,7 +10,7 @@ ALTAR is a daily offering ritual. The community offers together before midnight.
 
 The altar only answers when the offering is enough.
 
-Offer before midnight. If enough offer together, everyone gets back double. If not, everything offered is gone.
+Offer before midnight. If enough offer together, everyone gets back at least double. If not, everything offered is gone.
 
 $ALTAR is a memecoin that only grows when enough holders offer some of their own coins together before midnight. Miss the daily offering and the offered coins are gone forever and the supply shrinks.
 
