@@ -49,6 +49,26 @@
     <p class="sub">Offerers have joined this round</p>
   </section>
 
+  <section aria-label="Make your offering">
+    <h2>Make your offering</h2>
+    <div class="offer-box">
+      <button class="claim" id="claimBtn" type="button" disabled>Claim 100 test ALTAR</button>
+      <p class="hint" id="claimNote">Connect your wallet to claim 100 free test ALTAR, once per wallet.</p>
+      <p class="hint">Claiming means holding. Holders who do not offer for 1 round pay 1% per quiet round as tithe.</p>
+      <label for="offerAmount">Amount in ALTAR</label>
+      <input id="offerAmount" type="text" inputmode="decimal" autocomplete="off">
+      <p class="hint">Your balance: <span id="myBalance">&mdash;</span> ALTAR</p>
+      <p class="hint">Minimum 10 ALTAR</p>
+      <p class="hint">Most you may offer: <span id="myCap">&mdash;</span> ALTAR<span id="myCapNote"></span></p>
+      <p class="hint">Your cap: <span id="repCap">&mdash;</span> ALTAR &mdash; grows as you hold</p>
+      <p class="hint" id="repRounds">&mdash;</p>
+      <p class="hint" id="quietLine">Connect your wallet to see your quiet tithe.</p>
+      <button class="offer" id="offerBtn" type="button">Offer</button>
+      <p class="hint" id="offerCapNote">New wallets start at 10 ALTAR per offer. Your cap grows as you hold.</p>
+      <p class="hint">Offered coins leave your wallet at once. On a pass they return with a reward. On a fail they are gone.</p>
+    </div>
+  </section>
+
   <section aria-label="Your rewards">
     <h2>Your rewards</h2>
     <p class="rule">A pass does not pay you at once. Your share waits for you to claim it, one round at a time — and a Feast share waits the same way.</p>
