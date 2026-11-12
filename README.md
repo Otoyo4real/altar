@@ -141,4 +141,6 @@ Deploy (testnet, v5 with the claim faucet, the AI Oracle, the quiet tithe, oncha
 
 ## What is not built
 
-No principal return (the sacrifice rule stands: offer 100, get 200 back on a pass, lose it on a fail). No demo video, no X post, and no hackathon submission yet.
+No principal return (the sacrifice rule stands: offer 100, get 200 back on a pass, lose it on a fail). No supply ceiling, no adaptive gate, no Hall of Offerers leaderboard, and no shareable 'I offered' line yet.
+
+The demo video is live on X (https://x.com/ritual_meme/status/2120650127635312915), and ALTAR was submitted to the NEAR hackathon in the memecoins track on 2026-11-12.
