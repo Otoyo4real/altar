@@ -574,6 +574,8 @@
         setText("offererCount", String(offering.offerer_count != null ? offering.offerer_count : DASH));
         var need = offering.min_offerers != null ? offering.min_offerers : (paramsNow && paramsNow.min_offerers != null ? paramsNow.min_offerers : null);
         setText("offererNeed", need === null ? DASH : String(need));
+        var minNote = el("offererMinNote");
+        if (minNote && need !== null) minNote.textContent = need + " is the minimum. The round needs at least that many offerers to pass.";
         if (offering.round_end != null) roundEndSec = Number(offering.round_end);
         if (offering.round_id != null) roundNow = Number(offering.round_id);
         if (offering.streak != null) streakNow = Number(offering.streak);
