@@ -196,6 +196,13 @@ pub const QUIET_RATE_BP: u16 = 100;
 pub const MULTIPLIERS_BP: [u16; 3] = [22500, 25000, 27500];
 /// Streak thresholds at which the multiplier rises.
 pub const MULTIPLIER_STREAKS: [u64; 3] = [0, 3, 7];
+/// The round-history view returns at most this many records, however
+/// large a limit the caller asks for, so one call cannot ask for an
+/// unbounded scan.
+pub const MAX_HISTORY_LIMIT: u32 = 100;
+/// The longest Oracle model name and proof the contract will store.
+pub const MAX_ORACLE_MODEL_LEN: usize = 256;
+pub const MAX_ORACLE_PROOF_LEN: usize = 256;
 
 /// One yoctoNEAR, the attached deposit for `offer` and `answer`.
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
@@ -740,6 +747,12 @@ impl Contract {
     }
 
     /// Circulating supply right now: total supply minus the Altar's share.
+    /// The vault is deliberately NOT subtracted here: the round-start
+    /// snapshot and the per-wallet offer cap are both read off this
+    /// value, and subtracting a previous round's still-locked vault
+    /// would shrink the next round's cap when the Answer is late and
+    /// block legitimate offerings. The vault is empty at round start
+    /// whenever the Answer is on time, which is the normal case.
     fn circulating_supply(&self) -> u128 {
         self.token.ft_total_supply().0 - self.treasury_balance
     }
@@ -1106,6 +1119,18 @@ impl Contract {
             assert!(
                 proof.is_none(),
                 "a rule prediction has no proof"
+            );
+        }
+        if let Some(m) = &model {
+            assert!(
+                m.len() <= MAX_ORACLE_MODEL_LEN,
+                "model name too long"
+            );
+        }
+        if let Some(p) = &proof {
+            assert!(
+                p.len() <= MAX_ORACLE_PROOF_LEN,
+                "proof too long"
             );
         }
         let round_id = self.current_round_id();
@@ -1716,6 +1741,7 @@ impl Contract {
     /// contiguous from the init round (the Answer settles every round in
     /// order), so there is no need to scan below it.
     pub fn get_round_history(&self, limit: u32) -> Vec<RoundRecord> {
+        let limit = limit.min(MAX_HISTORY_LIMIT);
         let mut out = Vec::new();
         let mut round = match self.last_settled_round_id {
             Some(r) => r as i64,
